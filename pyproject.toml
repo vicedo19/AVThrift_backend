@@ -1,0 +1,46 @@
+[project]
+name = "avthrift-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=5.2.7",
+    "django-cors-headers>=4.9.0",
+    "djangorestframework>=3.16.1",
+    "drf-spectacular>=0.29.0",
+    "gunicorn>=23.0.0",
+    "psycopg[binary]>=3.2.12",
+    "python-decouple>=3.8",
+    "whitenoise>=6.11.0",
+]
+
+[tool.black]
+line-length = 120
+target-version = ["py313"]
+skip-string-normalization = false
+
+[tool.isort]
+profile = "black"
+line_length = 120
+py_version = 313
+src_paths = ["config"]
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = ["E203", "W503"]
+exclude = [
+  ".venv",
+  "build",
+  "dist",
+  "migrations",
+  "staticfiles",
+]
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+    "flake8>=7.3.0",
+    "isort>=7.0.0",
+    "pre-commit>=4.3.0",
+]
