@@ -10,6 +10,8 @@ A production-grade e-commerce backend built with Django, Django REST Framework, 
 - Dockerfile and docker-compose for parity across dev/CI/prod
 - Pre-commit hooks and code quality tools (Black, isort, Flake8)
 
+Project rules: see `.trae/rules/project_rules.md` for conventions and guidelines.
+
 ---
 
 ## Quick Start (Local Dev)
