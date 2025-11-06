@@ -1,4 +1,6 @@
+import sentry_sdk
 from decouple import Csv, config
+from sentry_sdk.integrations.django import DjangoIntegration
 
 from .base import *  # noqa
 
@@ -11,6 +13,9 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv())
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="", cast=Csv())
 CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
+CORS_ALLOW_CREDENTIALS = config("CORS_ALLOW_CREDENTIALS", default=True, cast=bool)
+SESSION_COOKIE_SAMESITE = config("SESSION_COOKIE_SAMESITE", default="Lax")
+CSRF_COOKIE_SAMESITE = config("CSRF_COOKIE_SAMESITE", default="Lax")
 
 # Security hardening (tune for DO App Platform / Droplets)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -40,4 +45,22 @@ LOGGING = {
         "handlers": ["console"],
         "level": "INFO",
     },
+    "loggers": {
+        "auth": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
 }
+
+# Sentry
+SENTRY_DSN = config("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=config("SENTRY_ENV", default="production"),
+        integrations=[DjangoIntegration()],
+        traces_sample_rate=config("SENTRY_TRACES_SAMPLE_RATE", default=0.0, cast=float),
+        send_default_pii=config("SENTRY_SEND_DEFAULT_PII", default=True, cast=bool),
+    )

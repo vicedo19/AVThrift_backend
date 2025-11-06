@@ -24,6 +24,10 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "corsheaders",
+    "rest_framework_simplejwt.token_blacklist",
+    # Local
+    "users",
+    "catalog",
 ]
 
 MIDDLEWARE = [
@@ -81,9 +85,7 @@ else:
     }
 
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
-    },
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -106,17 +108,38 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+AUTH_USER_MODEL = "users.User"
 
 # DRF + Spectacular
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.BasicAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        # Global throttles
+        "user": "100/min",
+        "anon": "20/min",
+        # Scoped throttles for sensitive flows
+        "signin": "10/min",
+        "token_refresh": "60/min",
+        "token_verify": "120/min",
+        "password_reset": "5/min",
+        "email_verify": "5/min",
+        "email_reset": "5/min",
+        "signout": "60/min",
+        "profile": "120/min",
+        "register": "10/min",
+    },
 }
 
 SPECTACULAR_SETTINGS = {
