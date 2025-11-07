@@ -4,7 +4,7 @@ Creates a few categories, products with media, and a collection.
 Re-running is idempotent; existing items are reused by slug/sku.
 """
 
-from catalog.models import Category, Collection, Media, Product
+from catalog.models import Category, Collection, CollectionProduct, Media, Product
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils.text import slugify
@@ -122,8 +122,12 @@ class Command(BaseCommand):
             slug="featured",
             defaults={"name": "Featured", "description": "Featured products", "is_active": True, "sort_order": 0},
         )
-        # Add all products to featured
-        for prod in prod_objs:
-            featured.products.add(prod)
+        # Add all products to featured in curated order
+        for idx, prod in enumerate(prod_objs):
+            CollectionProduct.objects.get_or_create(
+                collection=featured,
+                product=prod,
+                defaults={"sort_order": idx},
+            )
 
         self.stdout.write(self.style.SUCCESS("Catalog seed complete."))
