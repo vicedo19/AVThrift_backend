@@ -1,5 +1,5 @@
 import factory
-from catalog.models import Category, Collection, Media, Product
+from catalog.models import Category, Collection, CollectionProduct, Media, Product
 from factory import Faker
 from factory.django import DjangoModelFactory
 
@@ -59,8 +59,9 @@ class CollectionFactory(DjangoModelFactory):
 
     @factory.post_generation
     def products(self, create, extracted, **kwargs):
+        # Backwards-compatible: allow 'products' argument to create curated ordering
         if not create:
             return
         if extracted:
-            for p in extracted:
-                self.products.add(p)
+            for idx, p in enumerate(extracted):
+                CollectionProduct.objects.get_or_create(collection=self, product=p, defaults={"sort_order": idx})
