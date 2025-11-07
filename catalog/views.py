@@ -218,7 +218,10 @@ class CollectionViewSet(viewsets.ReadOnlyModelViewSet):
 CollectionViewSet = extend_schema_view(
     list=extend_schema(
         summary="List collections",
-        description="Returns active collections ordered by sort_order then name",
+        description=(
+            "Returns active collections ordered by sort_order then name.\n\n"
+            "Ordering of products within a collection is curated via the CollectionProduct through model."
+        ),
         tags=["Catalog"],
         examples=[
             OpenApiExample(
@@ -244,7 +247,10 @@ CollectionViewSet = extend_schema_view(
     ),
     retrieve=extend_schema(
         summary="Get collection by slug",
-        description="Returns a single collection by its slug",
+        description=(
+            "Returns a single collection by its slug.\n\n"
+            "Products associated with a collection are presented in the curated order defined by CollectionProduct."
+        ),
         tags=["Catalog"],
         examples=[
             OpenApiExample(
