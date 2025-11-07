@@ -78,13 +78,6 @@ class Product(TimeStampedModel):
         (STATUS_PUBLISHED, "Published"),
     ]
 
-    title = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=220, unique=True)
-    description = models.TextField(blank=True)
-    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_DRAFT, db_index=True)
-    categories = models.ManyToManyField(Category, related_name="products", blank=True)
-
-    default_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     CURRENCY_NGN = "NGN"
     CURRENCY_USD = "USD"
     CURRENCY_EUR = "EUR"
@@ -93,6 +86,13 @@ class Product(TimeStampedModel):
         (CURRENCY_USD, "USD"),
         (CURRENCY_EUR, "EUR"),
     ]
+
+    title = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=220, unique=True)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_DRAFT, db_index=True)
+    categories = models.ManyToManyField(Category, related_name="products", blank=True)
+    default_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default="NGN")
 
     seo_title = models.CharField(max_length=200, blank=True)
@@ -108,17 +108,11 @@ class Product(TimeStampedModel):
 class ProductVariant(TimeStampedModel):
     """Variant SKU under a product (e.g., size/color)."""
 
-    product = models.ForeignKey(Product, related_name="variants", on_delete=models.CASCADE)
-    sku = models.CharField(max_length=64, unique=True)
-    options = models.JSONField(null=True, blank=True)
-    price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     CURRENCY_CHOICES = [
         (Product.CURRENCY_NGN, "NGN"),
         (Product.CURRENCY_USD, "USD"),
         (Product.CURRENCY_EUR, "EUR"),
     ]
-    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default=Product.CURRENCY_NGN)
-    barcode = models.CharField(max_length=64, blank=True)
 
     STATUS_ACTIVE = "active"
     STATUS_INACTIVE = "inactive"
@@ -126,6 +120,13 @@ class ProductVariant(TimeStampedModel):
         (STATUS_ACTIVE, "Active"),
         (STATUS_INACTIVE, "Inactive"),
     ]
+
+    product = models.ForeignKey(Product, related_name="variants", on_delete=models.CASCADE)
+    sku = models.CharField(max_length=64, unique=True)
+    options = models.JSONField(null=True, blank=True)
+    price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default=Product.CURRENCY_NGN)
+    barcode = models.CharField(max_length=64, blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
 
     class Meta:
@@ -178,7 +179,6 @@ class Collection(TimeStampedModel):
     name = models.CharField(max_length=200)
     slug = models.SlugField(max_length=220, unique=True)
     description = models.TextField(blank=True)
-    products = models.ManyToManyField(Product, related_name="collections", blank=True)
     # Optional curated ordering within a collection via through model
     ordered_products = models.ManyToManyField(
         Product,
