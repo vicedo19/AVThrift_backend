@@ -2,7 +2,7 @@
 
 from django.contrib import admin
 
-from .models import Category, Collection, Media, Product, ProductVariant
+from .models import Category, Collection, CollectionProduct, Media, Product, ProductVariant
 
 
 @admin.register(Category)
@@ -34,6 +34,18 @@ class CollectionAdmin(admin.ModelAdmin):
     search_fields = ("name", "slug")
     list_filter = ("is_active",)
     prepopulated_fields = {"slug": ("name",)}
+    inlines = []
+
+
+class CollectionProductInline(admin.TabularInline):
+    model = CollectionProduct
+    extra = 0
+    fields = ("product", "sort_order")
+    ordering = ("sort_order",)
+
+
+# Attach inline after class definition to avoid forward reference issues
+CollectionAdmin.inlines = [CollectionProductInline]
 
 
 @admin.register(ProductVariant)
