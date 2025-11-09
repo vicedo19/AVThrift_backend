@@ -31,9 +31,9 @@ urlpatterns = [
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="api-schema"), name="api-docs"),
     # Healthcheck
     path("health/", health, name="health"),
-    # Namespaced routes
-    path("api/auth/", include("users.auth_urls")),
-    path("api/account/", include("users.account_urls")),
-    path("api/catalog/", include("catalog.urls")),
-    path("api/inventory/", include("inventory.urls")),
+    # Versioned v1 routes only
+    path("api/v1/auth/", include("users.auth_urls")),
+    path("api/v1/account/", include("users.account_urls")),
+    path("api/v1/catalog/", include("catalog.urls")),
+    path("api/v1/inventory/", include("inventory.urls")),
 ]
