@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     # Local
     "users",
     "catalog",
+    "inventory",
 ]
 
 MIDDLEWARE = [
