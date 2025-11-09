@@ -17,7 +17,7 @@ class AuthFlowTests(APITestCase):
 
     def test_login_returns_tokens(self):
         resp = self.client.post(
-            "/api/auth/signin/",
+            "/api/v1/auth/signin/",
             {"username": self.user.username, "password": self.password},
             format="json",
         )
@@ -26,30 +26,30 @@ class AuthFlowTests(APITestCase):
         self.assertIn("refresh", resp.data)
 
     def test_profile_requires_auth(self):
-        resp = self.client.get("/api/account/profile/")
+        resp = self.client.get("/api/v1/account/profile/")
         self.assertEqual(resp.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_profile_with_access_token(self):
         signin = self.client.post(
-            "/api/auth/signin/",
+            "/api/v1/auth/signin/",
             {"username": self.user.username, "password": self.password},
             format="json",
         )
         access = signin.data["access"]
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
-        resp = self.client.get("/api/account/profile/")
+        resp = self.client.get("/api/v1/account/profile/")
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(resp.data["email"], self.user.email)
 
     def test_logout_blacklists_refresh(self):
         signin = self.client.post(
-            "/api/auth/signin/",
+            "/api/v1/auth/signin/",
             {"username": self.user.username, "password": self.password},
             format="json",
         )
         refresh = signin.data["refresh"]
-        resp = self.client.post("/api/auth/signout/", {"refresh": refresh}, format="json")
+        resp = self.client.post("/api/v1/auth/signout/", {"refresh": refresh}, format="json")
         self.assertIn(resp.status_code, (status.HTTP_205_RESET_CONTENT, status.HTTP_200_OK))
         # Try refreshing with the blacklisted token
-        resp2 = self.client.post("/api/auth/refresh/", {"refresh": refresh}, format="json")
+        resp2 = self.client.post("/api/v1/auth/refresh/", {"refresh": refresh}, format="json")
         self.assertEqual(resp2.status_code, status.HTTP_401_UNAUTHORIZED)

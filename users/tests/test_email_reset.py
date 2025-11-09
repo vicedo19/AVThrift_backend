@@ -14,7 +14,7 @@ class EmailResetTests(APITestCase):
         )
         # Authenticate
         signin = self.client.post(
-            "/api/auth/signin/",
+            "/api/v1/auth/signin/",
             {"username": self.user.username, "password": self.password},
             format="json",
         )
@@ -23,7 +23,7 @@ class EmailResetTests(APITestCase):
 
     def test_email_reset_request_and_confirm(self):
         req = self.client.post(
-            "/api/account/email-reset/",
+            "/api/v1/account/email-reset/",
             {"new_email": "new@example.com"},
             format="json",
         )
@@ -33,7 +33,7 @@ class EmailResetTests(APITestCase):
 
         # Confirm change
         confirm = self.client.post(
-            "/api/account/email-reset/confirm/",
+            "/api/v1/account/email-reset/confirm/",
             {"uid": req.data["uid"], "token": req.data["token"]},
             format="json",
         )

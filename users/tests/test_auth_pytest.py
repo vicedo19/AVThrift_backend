@@ -14,7 +14,7 @@ def test_login_and_profile_pytest():
     client = APIClient()
 
     resp = client.post(
-        "/api/auth/signin/",
+        "/api/v1/auth/signin/",
         {"username": "jdoe", "password": "StrongPass123!"},
         format="json",
     )
@@ -22,6 +22,6 @@ def test_login_and_profile_pytest():
     access = resp.data["access"]
 
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
-    profile = client.get("/api/account/profile/")
+    profile = client.get("/api/v1/account/profile/")
     assert profile.status_code == 200
     assert profile.data["email"] == user.email

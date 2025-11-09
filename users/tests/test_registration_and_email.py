@@ -12,7 +12,7 @@ class RegistrationAndEmailVerificationTests(APITestCase):
             "first_name": "New",
             "last_name": "User",
         }
-        resp = self.client.post("/api/account/register/", payload, format="json")
+        resp = self.client.post("/api/v1/account/register/", payload, format="json")
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
         self.assertIn("email_verification", resp.data)
         self.assertIn("uid", resp.data["email_verification"])  # dev convenience
@@ -24,7 +24,7 @@ class RegistrationAndEmailVerificationTests(APITestCase):
 
         # Confirm verification
         confirm = self.client.post(
-            "/api/account/email-verify/confirm/",
+            "/api/v1/account/email-verify/confirm/",
             resp.data["email_verification"],
             format="json",
         )

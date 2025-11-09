@@ -14,7 +14,7 @@ class PasswordResetTests(APITestCase):
 
     def test_password_reset_request_and_confirm(self):
         req = self.client.post(
-            "/api/account/password-reset/",
+            "/api/v1/account/password-reset/",
             {"email": self.user.email},
             format="json",
         )
@@ -24,7 +24,7 @@ class PasswordResetTests(APITestCase):
         self.assertIn("token", req.data)
 
         confirm = self.client.post(
-            "/api/account/password-reset/confirm/",
+            "/api/v1/account/password-reset/confirm/",
             {"uid": req.data["uid"], "token": req.data["token"], "new_password": "NewPass123!"},
             format="json",
         )
@@ -32,7 +32,7 @@ class PasswordResetTests(APITestCase):
 
         # Login with new password
         signin = self.client.post(
-            "/api/auth/signin/",
+            "/api/v1/auth/signin/",
             {"username": self.user.username, "password": "NewPass123!"},
             format="json",
         )
