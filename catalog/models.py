@@ -4,6 +4,7 @@ Defines core entities for the catalog domain: categories, attributes,
 products, variants, media, collections, and attribute values.
 """
 
+from common.choices import ActiveInactive, DraftPublished
 from django.db import models
 
 
@@ -71,12 +72,9 @@ class Attribute(TimeStampedModel):
 class Product(TimeStampedModel):
     """Core product entity."""
 
-    STATUS_DRAFT = "draft"
-    STATUS_PUBLISHED = "published"
-    STATUS_CHOICES = [
-        (STATUS_DRAFT, "Draft"),
-        (STATUS_PUBLISHED, "Published"),
-    ]
+    STATUS_DRAFT = DraftPublished.DRAFT
+    STATUS_PUBLISHED = DraftPublished.PUBLISHED
+    STATUS_CHOICES = DraftPublished.choices
 
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=220, unique=True)
@@ -98,12 +96,9 @@ class Product(TimeStampedModel):
 class ProductVariant(TimeStampedModel):
     """Variant SKU under a product (e.g., size/color)."""
 
-    STATUS_ACTIVE = "active"
-    STATUS_INACTIVE = "inactive"
-    STATUS_CHOICES = [
-        (STATUS_ACTIVE, "Active"),
-        (STATUS_INACTIVE, "Inactive"),
-    ]
+    STATUS_ACTIVE = ActiveInactive.ACTIVE
+    STATUS_INACTIVE = ActiveInactive.INACTIVE
+    STATUS_CHOICES = ActiveInactive.choices
 
     product = models.ForeignKey(Product, related_name="variants", on_delete=models.CASCADE)
     sku = models.CharField(max_length=64, unique=True)
@@ -113,8 +108,15 @@ class ProductVariant(TimeStampedModel):
 
     class Meta:
         ordering = ["sku"]
-        constraints = []
-        indexes = []
+        constraints = [
+            models.CheckConstraint(
+                name="variant_price_non_negative",
+                check=models.Q(price__gte=0) | models.Q(price__isnull=True),
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["product", "status"]),
+        ]
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.product.title} [{self.sku}]"

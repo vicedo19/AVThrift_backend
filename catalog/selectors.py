@@ -8,6 +8,9 @@ structures and avoid side effects.
 from typing import Iterable, Optional
 
 from django.db.models import Prefetch, Q, QuerySet
+from django.db.models.expressions import OuterRef, Subquery
+from django.db.models.functions import Coalesce
+from inventory.models import StockItem
 
 from .models import Category, Collection, CollectionProduct, Media, Product, ProductVariant
 
@@ -107,9 +110,22 @@ def list_products_in_category(*, category_slug: str, ordering: Optional[Iterable
 
 
 def list_variants_by_product_slug(*, product_slug: str) -> QuerySet[ProductVariant]:
-    """Return variants for a given product slug, with product and media prefetched."""
+    """Return variants for a given product slug, annotated with availability.
 
-    return ProductVariant.objects.select_related("product").prefetch_related("media").filter(product__slug=product_slug)
+    Availability is defined as ``quantity - reserved`` from the inventory StockItem.
+    When no stock item exists for a variant, availability defaults to 0.
+    """
+
+    qty_sub = Subquery(StockItem.objects.filter(variant_id=OuterRef("pk")).values("quantity")[:1])
+    res_sub = Subquery(StockItem.objects.filter(variant_id=OuterRef("pk")).values("reserved")[:1])
+    available_expr = Coalesce(qty_sub, 0) - Coalesce(res_sub, 0)
+
+    return (
+        ProductVariant.objects.select_related("product")
+        .prefetch_related("media")
+        .annotate(available=available_expr)
+        .filter(product__slug=product_slug)
+    )
 
 
 def list_media_by_product_slug(*, product_slug: str) -> QuerySet[Media]:

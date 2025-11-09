@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 
-from .models import Category, Collection, Media, Product
+from .models import Attribute, Category, Collection, Media, Product, ProductVariant
 
 
 class MediaSerializer(serializers.ModelSerializer):
@@ -71,4 +71,31 @@ class CollectionSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "slug", "description", "is_active", "sort_order"]
 
 
-# Variant serializer will remain in views layer if needed; inventory overlay removed.
+class ProductVariantSerializer(serializers.ModelSerializer):
+    available = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = ProductVariant
+        fields = [
+            "id",
+            "product",
+            "sku",
+            "price",
+            "barcode",
+            "status",
+            "available",
+        ]
+
+
+class AttributeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Attribute
+        fields = [
+            "id",
+            "name",
+            "code",
+            "input_type",
+            "is_filterable",
+            "allowed_values",
+            "sort_order",
+        ]
