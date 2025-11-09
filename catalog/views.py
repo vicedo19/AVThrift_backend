@@ -1,13 +1,13 @@
 """Read-only viewsets for catalog resources (initial MVP)."""
 
-from django.db.models import Prefetch
 from django_filters import rest_framework as filters
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema, extend_schema_view
 from rest_framework import filters as drf_filters
 from rest_framework import viewsets
 
-from .models import Category, Collection, Media, Product
+from . import selectors
+from .models import Category, Collection, Product
 from .serializers import CategorySerializer, CollectionSerializer, ProductDetailSerializer, ProductListSerializer
 
 
@@ -69,15 +69,12 @@ CategoryViewSet = extend_schema_view(
 
 
 class ProductFilterSet(filters.FilterSet):
-    price_min = filters.NumberFilter(field_name="default_price", lookup_expr="gte")
-    price_max = filters.NumberFilter(field_name="default_price", lookup_expr="lte")
     category = filters.CharFilter(field_name="categories__slug")
     status = filters.CharFilter(field_name="status")
-    currency = filters.CharFilter(field_name="currency")
 
     class Meta:
         model = Product
-        fields = ["category", "status", "currency", "price_min", "price_max"]
+        fields = ["category", "status"]
 
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
@@ -94,23 +91,15 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         drf_filters.SearchFilter,
         QSearchFilter,
     ]
-    ordering_fields = ["title", "default_price", "created_at"]
+    ordering_fields = ["title", "created_at"]
     search_fields = ["title", "description", "categories__name"]
 
     def get_queryset(self):
-        # Selective prefetch: only primary media on list, full media on detail
+        # Use selectors for list; prefetch full relations for detail.
         if self.action == "list":
-            qs = (
-                Product.objects.all()
-                .prefetch_related(
-                    Prefetch("media", queryset=Media.objects.filter(is_primary=True)),
-                    "categories",
-                )
-                .order_by("title")
-            )
-        else:
-            qs = Product.objects.all().prefetch_related("media", "categories").order_by("title")
-        return qs
+            # Filtering/search is applied by DRF backends; selectors provide optimized prefetch for list.
+            return selectors.list_products()
+        return Product.objects.all().prefetch_related("media", "categories").order_by("title")
 
     def get_serializer_class(self):
         return ProductDetailSerializer if self.action == "retrieve" else ProductListSerializer
@@ -125,15 +114,10 @@ ProductViewSet = extend_schema_view(
             OpenApiParameter("category", OpenApiTypes.STR, OpenApiParameter.QUERY, description="Category slug"),
             OpenApiParameter("status", OpenApiTypes.STR, OpenApiParameter.QUERY, description="Product status"),
             OpenApiParameter(
-                "currency", OpenApiTypes.STR, OpenApiParameter.QUERY, description="Currency code (e.g., NGN)"
-            ),
-            OpenApiParameter("price_min", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, description="Minimum price"),
-            OpenApiParameter("price_max", OpenApiTypes.NUMBER, OpenApiParameter.QUERY, description="Maximum price"),
-            OpenApiParameter(
                 "ordering",
                 OpenApiTypes.STR,
                 OpenApiParameter.QUERY,
-                description="Ordering field (e.g., title, -created_at, default_price)",
+                description="Ordering field (e.g., title, -created_at)",
             ),
             OpenApiParameter(
                 "search",

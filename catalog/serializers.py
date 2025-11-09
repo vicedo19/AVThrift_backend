@@ -27,8 +27,6 @@ class ProductListSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "slug",
-            "default_price",
-            "currency",
             "primary_media_url",
             "primary_category",
         ]
@@ -60,8 +58,6 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "status",
-            "default_price",
-            "currency",
             "seo_title",
             "seo_description",
             "categories",
@@ -73,3 +69,6 @@ class CollectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Collection
         fields = ["id", "name", "slug", "description", "is_active", "sort_order"]
+
+
+# Variant serializer will remain in views layer if needed; inventory overlay removed.

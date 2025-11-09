@@ -27,8 +27,6 @@ def test_products_list_filters_ordering_pagination_search(django_assert_num_quer
         "id",
         "title",
         "slug",
-        "default_price",
-        "currency",
         "primary_media_url",
         "primary_category",
     } <= set(first.keys())
@@ -38,10 +36,7 @@ def test_products_list_filters_ordering_pagination_search(django_assert_num_quer
     assert resp_audio.status_code == 200
     assert all(r["slug"] == p1.slug for r in resp_audio.data["results"])  # type: ignore[index]
 
-    # Currency filter edge
-    resp_currency = client.get("/api/catalog/products/?currency=NGN")
-    assert resp_currency.status_code == 200
-    assert all(r["currency"] == "NGN" for r in resp_currency.data["results"])  # type: ignore[index]
+    # Currency is fixed; no filter required
 
     # Pagination edge: very high page number should return empty results
     resp_page = client.get("/api/catalog/products/?page=9999")

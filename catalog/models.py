@@ -78,22 +78,12 @@ class Product(TimeStampedModel):
         (STATUS_PUBLISHED, "Published"),
     ]
 
-    CURRENCY_NGN = "NGN"
-    CURRENCY_USD = "USD"
-    CURRENCY_EUR = "EUR"
-    CURRENCY_CHOICES = [
-        (CURRENCY_NGN, "NGN"),
-        (CURRENCY_USD, "USD"),
-        (CURRENCY_EUR, "EUR"),
-    ]
-
     title = models.CharField(max_length=200)
     slug = models.SlugField(max_length=220, unique=True)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_DRAFT, db_index=True)
     categories = models.ManyToManyField(Category, related_name="products", blank=True)
-    default_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default="NGN")
+    # Currency fixed to NGN at the business level; field removed
 
     seo_title = models.CharField(max_length=200, blank=True)
     seo_description = models.TextField(blank=True)
@@ -108,12 +98,6 @@ class Product(TimeStampedModel):
 class ProductVariant(TimeStampedModel):
     """Variant SKU under a product (e.g., size/color)."""
 
-    CURRENCY_CHOICES = [
-        (Product.CURRENCY_NGN, "NGN"),
-        (Product.CURRENCY_USD, "USD"),
-        (Product.CURRENCY_EUR, "EUR"),
-    ]
-
     STATUS_ACTIVE = "active"
     STATUS_INACTIVE = "inactive"
     STATUS_CHOICES = [
@@ -123,14 +107,14 @@ class ProductVariant(TimeStampedModel):
 
     product = models.ForeignKey(Product, related_name="variants", on_delete=models.CASCADE)
     sku = models.CharField(max_length=64, unique=True)
-    options = models.JSONField(null=True, blank=True)
     price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default=Product.CURRENCY_NGN)
     barcode = models.CharField(max_length=64, blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_ACTIVE)
 
     class Meta:
         ordering = ["sku"]
+        constraints = []
+        indexes = []
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.product.title} [{self.sku}]"
@@ -150,6 +134,18 @@ class ProductAttributeValue(TimeStampedModel):
 
     class Meta:
         ordering = ["attribute__name"]
+        constraints = [
+            models.CheckConstraint(
+                name="pav_xor_product_variant",
+                check=(
+                    models.Q(product__isnull=False, variant__isnull=True)
+                    | models.Q(product__isnull=True, variant__isnull=False)
+                ),
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["attribute", "product", "variant"]),
+        ]
 
     def __str__(self) -> str:  # pragma: no cover
         target = self.variant.sku if self.variant else (self.product.title if self.product else "-")
@@ -168,6 +164,21 @@ class Media(TimeStampedModel):
 
     class Meta:
         ordering = ["sort_order", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product"],
+                condition=models.Q(is_primary=True, variant__isnull=True),
+                name="unique_primary_media_per_product",
+            ),
+            models.UniqueConstraint(
+                fields=["variant"],
+                condition=models.Q(is_primary=True),
+                name="unique_primary_media_per_variant",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["product", "sort_order", "is_primary"]),
+        ]
 
     def __str__(self) -> str:  # pragma: no cover
         return self.url
@@ -205,6 +216,9 @@ class CollectionProduct(TimeStampedModel):
 
     class Meta:
         ordering = ["sort_order", "id"]
+        indexes = [
+            models.Index(fields=["collection", "sort_order"]),
+        ]
         unique_together = ("collection", "product")
 
     def __str__(self) -> str:  # pragma: no cover

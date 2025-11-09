@@ -20,8 +20,8 @@ class MediaInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ("title", "slug", "status", "default_price", "currency")
-    list_editable = ("currency",)
+    list_display = ("title", "slug", "status")
+    list_editable = ()
     search_fields = ("title", "slug")
     list_filter = ("status", "categories")
     prepopulated_fields = {"slug": ("title",)}
@@ -50,7 +50,7 @@ CollectionAdmin.inlines = [CollectionProductInline]
 
 @admin.register(ProductVariant)
 class ProductVariantAdmin(admin.ModelAdmin):
-    list_display = ("product", "sku", "status", "price", "currency")
-    list_editable = ("currency",)
+    list_display = ("product", "sku", "status", "price")
+    list_editable = ()
     search_fields = ("sku",)
     list_filter = ("status",)

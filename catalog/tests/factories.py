@@ -1,5 +1,5 @@
 import factory
-from catalog.models import Category, Collection, CollectionProduct, Media, Product
+from catalog.models import Attribute, Category, Collection, CollectionProduct, Media, Product, ProductVariant
 from factory import Faker
 from factory.django import DjangoModelFactory
 
@@ -23,8 +23,6 @@ class ProductFactory(DjangoModelFactory):
     slug = factory.LazyAttribute(lambda o: "-".join(o.title.lower().split()))
     description = Faker("paragraph")
     status = Product.STATUS_PUBLISHED
-    default_price = factory.Faker("pydecimal", left_digits=3, right_digits=2, positive=True)
-    currency = Product.CURRENCY_NGN
     seo_title = factory.LazyAttribute(lambda o: o.title)
 
     @factory.post_generation
@@ -45,6 +43,30 @@ class MediaFactory(DjangoModelFactory):
     alt_text = Faker("sentence")
     is_primary = False
     sort_order = 0
+
+
+class AttributeFactory(DjangoModelFactory):
+    class Meta:
+        model = Attribute
+
+    name = Faker("word")
+    code = factory.LazyAttribute(lambda o: o.name.lower())
+    input_type = Attribute.INPUT_SELECT
+    is_filterable = True
+    allowed_values = factory.LazyFunction(lambda: ["Black", "Silver"])
+    sort_order = 0
+
+
+class ProductVariantFactory(DjangoModelFactory):
+    class Meta:
+        model = ProductVariant
+
+    product = factory.SubFactory(ProductFactory)
+    sku = factory.Faker("bothify", text="SKU-####-???")
+    price = factory.Faker("pydecimal", left_digits=3, right_digits=2, positive=True)
+    # currency now owned by Product; variant inherits implicitly
+    barcode = factory.Faker("ean")
+    status = ProductVariant.STATUS_ACTIVE
 
 
 class CollectionFactory(DjangoModelFactory):
