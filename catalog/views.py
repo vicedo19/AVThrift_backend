@@ -10,6 +10,7 @@ from rest_framework import filters as drf_filters
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 from . import selectors
 from .models import Attribute, Category, Collection, Product, ProductVariant
@@ -22,24 +23,14 @@ from .serializers import (
     ProductListSerializer,
     ProductVariantSerializer,
 )
+from .throttling import CatalogScopedRateThrottle
 
 
-class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Category.objects.filter(is_active=True).order_by("sort_order", "name")
-    serializer_class = CategorySerializer
-    lookup_field = "slug"
-
-    @action(detail=True, methods=["get"], url_path="products")
-    def products(self, request, slug=None):
-        qs = selectors.list_products_in_category(category_slug=slug)
-        return Response(ProductListSerializer(qs, many=True).data)
-
-
-CategoryViewSet = extend_schema_view(
+@extend_schema_view(
     list=extend_schema(
         summary="List categories",
         description="Returns active categories ordered by sort_order then name",
-        tags=["Catalog"],
+        tags=["Catalog Endpoints"],
         examples=[
             OpenApiExample(
                 "Category list",
@@ -66,7 +57,7 @@ CategoryViewSet = extend_schema_view(
     retrieve=extend_schema(
         summary="Get category by slug",
         description="Returns a single category by its slug",
-        tags=["Catalog"],
+        tags=["Catalog Endpoints"],
         examples=[
             OpenApiExample(
                 "Category detail",
@@ -83,22 +74,62 @@ CategoryViewSet = extend_schema_view(
             )
         ],
     ),
-)(CategoryViewSet)
+)
+class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Category.objects.filter(is_active=True).order_by("sort_order", "name")
+    serializer_class = CategorySerializer
+    lookup_field = "slug"
+    throttle_scope = "catalog"
+    throttle_classes = [CatalogScopedRateThrottle, UserRateThrottle, AnonRateThrottle]
+
+    @extend_schema(
+        tags=["Catalog Endpoints"],
+        summary="List products in category",
+        description="Returns products within a category by slug",
+    )
+    @action(detail=True, methods=["get"], url_path="products")
+    def products(self, request, slug=None):
+        qs = selectors.list_products_in_category(category_slug=slug)
+        return Response(ProductListSerializer(qs, many=True).data)
 
 
 class ProductFilterSet(filters.FilterSet):
     category = filters.CharFilter(field_name="categories__slug")
-    status = filters.CharFilter(field_name="status")
 
     class Meta:
         model = Product
-        fields = ["category", "status"]
+        fields = ["category"]
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="List products",
+        description=(
+            "Returns published products. Supports filtering by `category`, ordering by `title` or `created_at`, "
+            "and search via either `search` or `q`."
+        ),
+        tags=["Catalog Endpoints"],
+        parameters=[
+            OpenApiParameter("category", OpenApiTypes.STR, location="query", description="Filter by category slug"),
+            OpenApiParameter(
+                "ordering", OpenApiTypes.STR, location="query", description="Order by `title` or `created_at`"
+            ),
+            OpenApiParameter("search", OpenApiTypes.STR, location="query", description="Search products by text"),
+            OpenApiParameter("q", OpenApiTypes.STR, location="query", description="Alias for `search`"),
+        ],
+    ),
+    retrieve=extend_schema(
+        summary="Get product by slug",
+        description="Returns a published product with categories and media",
+        tags=["Catalog Endpoints"],
+    ),
+)
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     lookup_field = "slug"
     lookup_value_regex = "[^/]+"
     filterset_class = ProductFilterSet
+    throttle_scope = "catalog"
+    throttle_classes = [CatalogScopedRateThrottle, UserRateThrottle, AnonRateThrottle]
 
     # Support both `search` and `q` query params for search
     class QSearchFilter(drf_filters.SearchFilter):
@@ -117,12 +148,21 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         # Use selectors for list; prefetch full relations for detail.
         if self.action == "list":
             # Filtering/search is applied by DRF backends; selectors provide optimized prefetch for list.
-            return selectors.list_products()
-        return Product.objects.all().prefetch_related("media", "categories").order_by("title")
+            return selectors.list_products().filter(status=Product.STATUS_PUBLISHED)
+        return (
+            Product.objects.filter(status=Product.STATUS_PUBLISHED)
+            .prefetch_related("media", "categories")
+            .order_by("title")
+        )
 
     def get_serializer_class(self):
         return ProductDetailSerializer if self.action == "retrieve" else ProductListSerializer
 
+    @extend_schema(
+        tags=["Catalog Endpoints"],
+        summary="List product variants",
+        description="Returns active variants for a published product",
+    )
     @action(detail=True, methods=["get"], url_path="variants")
     def variants(self, request, slug=None):
         product = selectors.get_product_by_slug(slug)
@@ -131,6 +171,11 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         qs = selectors.list_variants_by_product_slug(product_slug=slug).filter(status=ProductVariant.STATUS_ACTIVE)
         return Response(ProductVariantSerializer(qs, many=True).data)
 
+    @extend_schema(
+        tags=["Catalog Endpoints"],
+        summary="List product media",
+        description="Returns media items for a published product",
+    )
     @action(detail=True, methods=["get"], url_path="media")
     def media(self, request, slug=None):
         product = selectors.get_product_by_slug(slug)
@@ -140,110 +185,14 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(MediaSerializer(qs, many=True).data)
 
 
-ProductViewSet = extend_schema_view(
-    list=extend_schema(
-        summary="List products",
-        description="Returns products with filtering, search, ordering, and pagination",
-        tags=["Catalog"],
-        parameters=[
-            OpenApiParameter("category", OpenApiTypes.STR, OpenApiParameter.QUERY, description="Category slug"),
-            OpenApiParameter("status", OpenApiTypes.STR, OpenApiParameter.QUERY, description="Product status"),
-            OpenApiParameter(
-                "ordering",
-                OpenApiTypes.STR,
-                OpenApiParameter.QUERY,
-                description="Ordering field (e.g., title, -created_at)",
-            ),
-            OpenApiParameter(
-                "search",
-                OpenApiTypes.STR,
-                OpenApiParameter.QUERY,
-                description="Search in title/description",
-            ),
-        ],
-        examples=[
-            OpenApiExample(
-                "Product list",
-                value={
-                    "count": 2,
-                    "next": None,
-                    "previous": None,
-                    "results": [
-                        {
-                            "id": 1,
-                            "title": "Studio Monitor Speakers",
-                            "slug": "studio-monitor-speakers",
-                            "primary_media_url": "https://images.example.com/monitor-speakers-primary.jpg",
-                            "primary_category": {"name": "Audio", "slug": "audio"},
-                        }
-                    ],
-                },
-                response_only=True,
-            )
-        ],
-    ),
-    retrieve=extend_schema(
-        summary="Get product by slug",
-        description="Returns a single product with categories and media",
-        tags=["Catalog"],
-        examples=[
-            OpenApiExample(
-                "Product detail",
-                value={
-                    "id": 1,
-                    "title": "Studio Monitor Speakers",
-                    "slug": "studio-monitor-speakers",
-                    "description": "High-fidelity nearfield monitors for accurate mixing.",
-                    "status": "published",
-                    "seo_title": "Studio Monitor Speakers",
-                    "seo_description": "Nearfield monitors",
-                    "categories": [
-                        {
-                            "id": 1,
-                            "name": "Audio",
-                            "slug": "audio",
-                            "description": "Audio equipment",
-                            "parent": None,
-                            "is_active": True,
-                            "sort_order": 0,
-                        }
-                    ],
-                    "media": [
-                        {
-                            "id": 10,
-                            "url": "https://images.example.com/monitor-speakers-primary.jpg",
-                            "alt_text": "Studio monitor speakers",
-                            "is_primary": True,
-                            "sort_order": 0,
-                        }
-                    ],
-                },
-                response_only=True,
-            )
-        ],
-    ),
-)(ProductViewSet)
-
-
-class CollectionViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Collection.objects.filter(is_active=True).order_by("sort_order", "name")
-    serializer_class = CollectionSerializer
-    lookup_field = "slug"
-
-    @action(detail=True, methods=["get"], url_path="products")
-    def products(self, request, slug=None):
-        qs = selectors.list_collection_products(collection_slug=slug)
-        return Response(ProductListSerializer(qs, many=True).data)
-
-
-CollectionViewSet = extend_schema_view(
+@extend_schema_view(
     list=extend_schema(
         summary="List collections",
         description=(
             "Returns active collections ordered by sort_order then name.\n\n"
             "Ordering of products within a collection is curated via the CollectionProduct through model."
         ),
-        tags=["Catalog"],
+        tags=["Catalog Endpoints"],
         examples=[
             OpenApiExample(
                 "Collection list",
@@ -272,7 +221,7 @@ CollectionViewSet = extend_schema_view(
             "Returns a single collection by its slug.\n\n"
             "Products associated with a collection are presented in the curated order defined by CollectionProduct."
         ),
-        tags=["Catalog"],
+        tags=["Catalog Endpoints"],
         examples=[
             OpenApiExample(
                 "Collection detail",
@@ -288,7 +237,23 @@ CollectionViewSet = extend_schema_view(
             )
         ],
     ),
-)(CollectionViewSet)
+)
+class CollectionViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Collection.objects.filter(is_active=True).order_by("sort_order", "name")
+    serializer_class = CollectionSerializer
+    lookup_field = "slug"
+    throttle_scope = "catalog"
+    throttle_classes = [CatalogScopedRateThrottle, UserRateThrottle, AnonRateThrottle]
+
+    @extend_schema(
+        tags=["Catalog Endpoints"],
+        summary="List products in collection",
+        description="Returns products in a collection by slug in curated order",
+    )
+    @action(detail=True, methods=["get"], url_path="products")
+    def products(self, request, slug=None):
+        qs = selectors.list_collection_products(collection_slug=slug)
+        return Response(ProductListSerializer(qs, many=True).data)
 
 
 class VariantFilterSet(filters.FilterSet):
@@ -300,12 +265,32 @@ class VariantFilterSet(filters.FilterSet):
         fields = ["product", "status"]
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="List variants",
+        description="Returns variants for published products with availability annotated",
+        tags=["Catalog Endpoints"],
+        parameters=[
+            OpenApiParameter("product", OpenApiTypes.STR, location="query", description="Filter by product slug"),
+            OpenApiParameter("status", OpenApiTypes.STR, location="query", description="Filter by variant status"),
+            OpenApiParameter("ordering", OpenApiTypes.STR, location="query", description="Order by `sku` or `id`"),
+            OpenApiParameter("search", OpenApiTypes.STR, location="query", description="Search by `sku` or `barcode`"),
+        ],
+    ),
+    retrieve=extend_schema(
+        summary="Get variant",
+        description="Returns a variant for a published product",
+        tags=["Catalog Endpoints"],
+    ),
+)
 class VariantViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ProductVariantSerializer
     filterset_class = VariantFilterSet
     filter_backends = [filters.DjangoFilterBackend, drf_filters.OrderingFilter, drf_filters.SearchFilter]
     ordering_fields = ["sku", "id"]
     search_fields = ["sku", "barcode"]
+    throttle_scope = "catalog"
+    throttle_classes = [CatalogScopedRateThrottle, UserRateThrottle, AnonRateThrottle]
 
     def get_queryset(self):
         qs = ProductVariant.objects.select_related("product").order_by("sku")
@@ -317,12 +302,6 @@ class VariantViewSet(viewsets.ReadOnlyModelViewSet):
         return qs.annotate(available=Coalesce(qty_sub, 0) - Coalesce(res_sub, 0))
 
 
-VariantViewSet = extend_schema_view(
-    list=extend_schema(summary="List variants", tags=["Catalog"]),
-    retrieve=extend_schema(summary="Get variant by id", tags=["Catalog"]),
-)(VariantViewSet)
-
-
 class AttributeFilterSet(filters.FilterSet):
     is_filterable = filters.BooleanFilter(field_name="is_filterable")
 
@@ -331,6 +310,27 @@ class AttributeFilterSet(filters.FilterSet):
         fields = ["is_filterable"]
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="List attributes",
+        description="Returns attributes with optional filtering by `is_filterable`",
+        tags=["Catalog Endpoints"],
+        parameters=[
+            OpenApiParameter(
+                "is_filterable", OpenApiTypes.BOOL, location="query", description="Filter by filterability"
+            ),
+            OpenApiParameter(
+                "ordering", OpenApiTypes.STR, location="query", description="Order by `name` or `sort_order`"
+            ),
+            OpenApiParameter("search", OpenApiTypes.STR, location="query", description="Search by `name` or `code`"),
+        ],
+    ),
+    retrieve=extend_schema(
+        summary="Get attribute",
+        description="Returns a single attribute",
+        tags=["Catalog Endpoints"],
+    ),
+)
 class AttributeViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Attribute.objects.order_by("sort_order", "name")
     serializer_class = AttributeSerializer
@@ -338,9 +338,5 @@ class AttributeViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [filters.DjangoFilterBackend, drf_filters.OrderingFilter, drf_filters.SearchFilter]
     ordering_fields = ["name", "sort_order"]
     search_fields = ["name", "code"]
-
-
-AttributeViewSet = extend_schema_view(
-    list=extend_schema(summary="List attributes", tags=["Catalog"]),
-    retrieve=extend_schema(summary="Get attribute by id", tags=["Catalog"]),
-)(AttributeViewSet)
+    throttle_scope = "catalog"
+    throttle_classes = [CatalogScopedRateThrottle, UserRateThrottle, AnonRateThrottle]
