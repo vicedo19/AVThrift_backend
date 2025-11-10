@@ -33,7 +33,7 @@ class PasswordResetTests(APITestCase):
         # Login with new password
         signin = self.client.post(
             "/api/v1/auth/signin/",
-            {"username": self.user.username, "password": "NewPass123!"},
+            {"identifier": self.user.email, "password": "NewPass123!"},
             format="json",
         )
         self.assertEqual(signin.status_code, status.HTTP_200_OK)

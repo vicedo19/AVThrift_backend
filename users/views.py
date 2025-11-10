@@ -27,14 +27,11 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
 
 from .logging import log_auth_event
-from .serializers import RegistrationSerializer, UserMeSerializer
+from .serializers import EmailOrPhoneTokenObtainPairSerializer, RegistrationSerializer, UserMeSerializer
 from .services import send_email_change, send_email_verification, send_password_reset_email
 from .tokens import email_change_token, email_verification_token
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-@throttle_classes([ScopedRateThrottle])
 @extend_schema(
     operation_id="users_current_user",
     summary="Get current user profile",
@@ -44,12 +41,15 @@ from .tokens import email_change_token, email_verification_token
         "Response fields: id, username, email, first_name, last_name.\n\n"
         "Errors: 401 if authentication credentials are missing or invalid."
     ),
-    tags=["Users"],
+    tags=["User Endpoints"],
     responses={
         200: OpenApiResponse(description="User profile", response=UserMeSerializer),
         401: OpenApiResponse(description="Unauthorized"),
     },
 )
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+@throttle_classes([ScopedRateThrottle])
 def current_user(request):
     """Return the authenticated user's basic profile fields."""
     log_auth_event("profile", request, user=request.user)
@@ -61,6 +61,7 @@ def current_user(request):
 current_user.throttle_scope = "profile"
 
 
+@extend_schema(tags=["User Endpoints"])
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
@@ -83,6 +84,7 @@ def register(request):
 register.throttle_scope = "register"
 
 
+@extend_schema(tags=["User Endpoints"])
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
@@ -106,6 +108,7 @@ def password_reset_request(request):
 password_reset_request.throttle_scope = "password_reset"
 
 
+@extend_schema(tags=["User Endpoints"])
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
@@ -148,6 +151,7 @@ def password_reset_confirm(request):
 password_reset_confirm.throttle_scope = "password_reset"
 
 
+@extend_schema(tags=["User Endpoints"])
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
@@ -178,6 +182,7 @@ def email_verification_request(request):
 email_verification_request.throttle_scope = "email_verify"
 
 
+@extend_schema(tags=["User Endpoints"])
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
@@ -210,6 +215,7 @@ def email_verification_confirm(request):
 email_verification_confirm.throttle_scope = "email_verify"
 
 
+@extend_schema(tags=["User Endpoints"])
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @throttle_classes([ScopedRateThrottle])
@@ -232,6 +238,10 @@ def email_reset_request(request):
     if User.objects.filter(email=new_email).exists():
         log_auth_event("email_reset_request", request, user=request.user, status="duplicate_email")
         return Response({"detail": "Email is already in use."}, status=status.HTTP_400_BAD_REQUEST)
+    # Prevent two accounts from reserving the same pending email concurrently
+    if User.objects.filter(pending_email=new_email).exclude(pk=request.user.pk).exists():
+        log_auth_event("email_reset_request", request, user=request.user, status="duplicate_pending_email")
+        return Response({"detail": "Email is already reserved for change."}, status=status.HTTP_400_BAD_REQUEST)
 
     request.user.pending_email = new_email
     request.user.save(update_fields=["pending_email"])
@@ -244,6 +254,7 @@ def email_reset_request(request):
 email_reset_request.throttle_scope = "email_reset"
 
 
+@extend_schema(tags=["User Endpoints"])
 @api_view(["POST"])
 @permission_classes([AllowAny])
 @throttle_classes([ScopedRateThrottle])
@@ -293,6 +304,7 @@ class SignOutView(APIView):
     throttle_scope = "signout"
     permission_classes = [AllowAny]
 
+    @extend_schema(tags=["User Endpoints"])
     def post(self, request):
         refresh = request.data.get("refresh")
         if not refresh:
@@ -310,7 +322,9 @@ class SignOutView(APIView):
 class SignInView(TokenObtainPairView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "signin"
+    serializer_class = EmailOrPhoneTokenObtainPairSerializer
 
+    @extend_schema(tags=["User Endpoints"])
     def post(self, request, *args, **kwargs):
         resp = super().post(request, *args, **kwargs)
         status_label = "success" if resp.status_code == 200 else "failed"
@@ -322,6 +336,7 @@ class RefreshView(TokenRefreshView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "token_refresh"
 
+    @extend_schema(tags=["User Endpoints"])
     def post(self, request, *args, **kwargs):
         resp = super().post(request, *args, **kwargs)
         status_label = "success" if resp.status_code == 200 else "failed"
@@ -333,6 +348,7 @@ class VerifyView(TokenVerifyView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "token_verify"
 
+    @extend_schema(tags=["User Endpoints"])
     def post(self, request, *args, **kwargs):
         resp = super().post(request, *args, **kwargs)
         status_label = "success" if resp.status_code == 200 else "failed"

@@ -15,7 +15,7 @@ class EmailResetTests(APITestCase):
         # Authenticate
         signin = self.client.post(
             "/api/v1/auth/signin/",
-            {"username": self.user.username, "password": self.password},
+            {"identifier": self.user.email, "password": self.password},
             format="json",
         )
         access = signin.data["access"]

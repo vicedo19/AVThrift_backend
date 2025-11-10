@@ -18,7 +18,7 @@ class AuthFlowTests(APITestCase):
     def test_login_returns_tokens(self):
         resp = self.client.post(
             "/api/v1/auth/signin/",
-            {"username": self.user.username, "password": self.password},
+            {"identifier": self.user.email, "password": self.password},
             format="json",
         )
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
@@ -32,7 +32,7 @@ class AuthFlowTests(APITestCase):
     def test_profile_with_access_token(self):
         signin = self.client.post(
             "/api/v1/auth/signin/",
-            {"username": self.user.username, "password": self.password},
+            {"identifier": self.user.email, "password": self.password},
             format="json",
         )
         access = signin.data["access"]
@@ -44,7 +44,7 @@ class AuthFlowTests(APITestCase):
     def test_logout_blacklists_refresh(self):
         signin = self.client.post(
             "/api/v1/auth/signin/",
-            {"username": self.user.username, "password": self.password},
+            {"identifier": self.user.email, "password": self.password},
             format="json",
         )
         refresh = signin.data["refresh"]
@@ -53,3 +53,16 @@ class AuthFlowTests(APITestCase):
         # Try refreshing with the blacklisted token
         resp2 = self.client.post("/api/v1/auth/refresh/", {"refresh": refresh}, format="json")
         self.assertEqual(resp2.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_login_with_phone_returns_tokens(self):
+        # Add phone and login using phone
+        self.user.phone = "+14155552671"
+        self.user.save(update_fields=["phone"])
+        resp = self.client.post(
+            "/api/v1/auth/signin/",
+            {"identifier": self.user.phone, "password": self.password},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertIn("access", resp.data)
+        self.assertIn("refresh", resp.data)

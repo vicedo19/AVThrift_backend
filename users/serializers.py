@@ -3,9 +3,11 @@
 - UserMeSerializer: read-only profile data for the authenticated user.
 - RegistrationSerializer: action serializer to create users with
   strong password validation and unique email/username enforcement.
+- EmailOrPhoneTokenObtainPairSerializer: obtain JWTs using email or phone.
 """
 
 from rest_framework import serializers
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
 
@@ -73,3 +75,44 @@ class SignOutSerializer(serializers.Serializer):
     """
 
     refresh = serializers.CharField()
+
+
+class EmailOrPhoneTokenObtainPairSerializer(serializers.Serializer):
+    """Obtain JWTs by authenticating with either email or phone.
+
+    Accepts a single `identifier` field which may be an email address
+    (case-insensitive) or an E.164 phone number, and a `password`.
+    Returns `access` and `refresh` tokens on success.
+    """
+
+    identifier = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        identifier = (attrs.get("identifier") or "").strip()
+        password = attrs.get("password") or ""
+
+        if not identifier or not password:
+            raise serializers.ValidationError({"detail": "identifier and password are required."})
+
+        # Determine lookup by email vs phone
+        user = None
+        if "@" in identifier:
+            # Treat as email (normalize lowercase)
+            email = identifier.lower()
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                pass
+        else:
+            # Treat as phone (stored as E.164, stripped on save)
+            try:
+                user = User.objects.get(phone=identifier)
+            except User.DoesNotExist:
+                pass
+
+        if not user or not user.check_password(password) or not user.is_active:
+            raise serializers.ValidationError({"detail": "Invalid credentials."})
+
+        refresh = RefreshToken.for_user(user)
+        return {"access": str(refresh.access_token), "refresh": str(refresh)}

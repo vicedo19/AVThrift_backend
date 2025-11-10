@@ -15,7 +15,7 @@ def test_login_and_profile_pytest():
 
     resp = client.post(
         "/api/v1/auth/signin/",
-        {"username": "jdoe", "password": "StrongPass123!"},
+        {"identifier": "jdoe@example.com", "password": "StrongPass123!"},
         format="json",
     )
     assert resp.status_code == 200
