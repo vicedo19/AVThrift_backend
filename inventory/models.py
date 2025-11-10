@@ -3,7 +3,7 @@
 Tracks stock at the SKU (variant) or product level without warehouses.
 """
 
-from common.choices import MovementType
+from common.choices import MovementType, ReservationState
 from django.db import models
 
 
@@ -65,14 +65,10 @@ class StockMovement(TimeStampedModel):
 
 
 class StockReservation(TimeStampedModel):
-    STATE_ACTIVE = "active"
-    STATE_RELEASED = "released"
-    STATE_CONVERTED = "converted"
-    STATE_CHOICES = [
-        (STATE_ACTIVE, "Active"),
-        (STATE_RELEASED, "Released"),
-        (STATE_CONVERTED, "Converted"),
-    ]
+    STATE_ACTIVE = ReservationState.ACTIVE
+    STATE_RELEASED = ReservationState.RELEASED
+    STATE_CONVERTED = ReservationState.CONVERTED
+    STATE_CHOICES = ReservationState.choices
 
     variant = models.ForeignKey("catalog.ProductVariant", on_delete=models.CASCADE)
     quantity = models.IntegerField()

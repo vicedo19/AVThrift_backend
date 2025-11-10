@@ -17,7 +17,7 @@ def apply_movement(*, stock_item_id: int, movement_type: str, quantity: int, rea
     movement_type: label for admin/documentation; logic is driven by sign.
     """
     if quantity == 0:
-        return
+        return None
     try:
         item = StockItem.objects.select_for_update().select_related("variant").get(id=stock_item_id)
     except StockItem.DoesNotExist:
@@ -30,13 +30,14 @@ def apply_movement(*, stock_item_id: int, movement_type: str, quantity: int, rea
     item.quantity = int(item.quantity) + int(quantity)
 
     item.save(update_fields=["quantity", "updated_at"])
-    StockMovement.objects.create(
+    movement = StockMovement.objects.create(
         stock_item=item,
         movement_type=movement_type,
         quantity=quantity,
         reason=reason,
         reference=reference,
     )
+    return movement
 
 
 # Reservation services
