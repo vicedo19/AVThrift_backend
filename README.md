@@ -45,13 +45,19 @@ DATABASE_PORT=5432
 docker compose up -d db
 ```
 
-4) Run migrations and start the server
+4) (Optional) Start Redis for local cache/sessions
+```
+docker compose up -d redis
+```
+Then set `REDIS_URL=redis://localhost:6379/1` in `.env`. Dev settings will automatically use Redis for cache and `cached_db` sessions when `REDIS_URL` is present.
+
+5) Run migrations and start the server
 ```
 uv run python manage.py migrate
 uv run python manage.py runserver
 ```
 
-5) Explore endpoints
+6) Explore endpoints
 - Health: `GET http://localhost:8000/health/`
 - Swagger UI: `GET http://localhost:8000/api/docs/`
 - OpenAPI schema: `GET http://localhost:8000/api/schema/`
@@ -91,6 +97,16 @@ Environment variables (see `.env.example`):
 - CORS/CSRF: `CORS_ALLOW_ALL_ORIGINS`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS`
 - Database: `DATABASE_ENGINE` (`sqlite` or `postgres`), `DATABASE_*`
 - Production security (in prod.py): `SECURE_SSL_REDIRECT`, `SECURE_HSTS_SECONDS`
+
+Cache & Sessions
+- Dev/Test use in-memory cache (`LocMemCache`) and cache-backed sessions for speed.
+- Prod uses Redis cache via `REDIS_URL` and `SESSION_ENGINE=cached_db` for durability.
+- Set `REDIS_URL` like `redis://:password@redis-host:6379/1`.
+
+Throttling
+- Global rates: `user`, `anon`.
+- Scoped rates include `catalog`, `catalog_admin_write`, and auth-related scopes.
+- Tests override `REST_FRAMEWORK.DEFAULT_THROTTLE_RATES` and the app reads them dynamically.
 
 ---
 
