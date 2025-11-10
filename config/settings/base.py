@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     "users",
     "catalog",
     "inventory",
+    "customer",
 ]
 
 MIDDLEWARE = [
@@ -64,6 +65,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
+
+# Cache (enable in-memory cache for throttling and test stability)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "avthrift-cache",
+    }
+}
 
 # Database
 DB_ENGINE = config("DATABASE_ENGINE", default="sqlite")
@@ -112,6 +121,9 @@ STORAGES = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "users.User"
 
+# Use cache-backed sessions to avoid extra DB queries during throttling in tests/dev
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+
 # Email (dev defaults to console backend; override via env for SMTP)
 EMAIL_BACKEND = config(
     "EMAIL_BACKEND",
@@ -150,7 +162,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         # Global throttles
         "user": "100/min",
-        "anon": "20/min",
+        "anon": "100/min",
         # Scoped throttles for sensitive flows
         "signin": "10/min",
         "token_refresh": "60/min",
@@ -160,6 +172,10 @@ REST_FRAMEWORK = {
         "email_reset": "5/min",
         "signout": "60/min",
         "profile": "120/min",
+        "addresses": "120/min",
+        "addresses_write": "60/min",
+        "catalog": "240/min",
+        "catalog_admin_write": "60/min",
         "register": "10/min",
     },
 }

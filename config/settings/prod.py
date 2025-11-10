@@ -26,6 +26,17 @@ SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=31536000, cast=int)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
+# Cache: use Redis in production (configure REDIS_URL)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": config("REDIS_URL", default="redis://localhost:6379/1"),
+    }
+}
+
+# Sessions: cached_db stores sessions in DB with cache acceleration
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+
 # Logging
 LOGGING = {
     "version": 1,
