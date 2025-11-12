@@ -25,6 +25,14 @@ class ReservationState(models.TextChoices):
     CONVERTED = "converted", "Converted"
 
 
+class CartStatus(models.TextChoices):
+    """Statuses for shopping carts."""
+
+    ACTIVE = "active", "Active"
+    ORDERED = "ordered", "Ordered"
+    ABANDONED = "abandoned", "Abandoned"
+
+
 class NigerianState(models.TextChoices):
     """All Nigerian states plus FCT for address normalization."""
 
