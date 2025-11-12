@@ -2,6 +2,7 @@ import sentry_sdk
 from decouple import Csv, config
 from sentry_sdk.integrations.django import DjangoIntegration
 
+from .base import REST_FRAMEWORK as BASE_REST_FRAMEWORK
 from .base import *  # noqa
 
 DEBUG = False
@@ -75,3 +76,18 @@ if SENTRY_DSN:
         traces_sample_rate=config("SENTRY_TRACES_SAMPLE_RATE", default=0.0, cast=float),
         send_default_pii=config("SENTRY_SEND_DEFAULT_PII", default=True, cast=bool),
     )
+
+# DRF throttling scopes for cart endpoints in production
+# Define REST_FRAMEWORK explicitly to satisfy flake8 F405 with star imports
+REST_FRAMEWORK = {**BASE_REST_FRAMEWORK}
+REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
+    "rest_framework.throttling.ScopedRateThrottle",
+]
+_rates = {**BASE_REST_FRAMEWORK.get("DEFAULT_THROTTLE_RATES", {})}
+_rates.update(
+    {
+        "cart": "120/hour",
+        "cart_write": "60/hour",
+    }
+)
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = _rates

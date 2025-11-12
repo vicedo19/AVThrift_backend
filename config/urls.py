@@ -32,10 +32,10 @@ urlpatterns = [
     # Healthcheck
     path("health/", health, name="health"),
     # Versioned v1 routes only
-    path("api/v1/auth/", include("users.auth_urls")),
-    path("api/v1/account/", include("users.account_urls")),
+    path("api/v1/", include("users.urls")),
     path("api/v1/catalog/", include("catalog.urls")),
     path("api/v1/admin/catalog/", include("catalog.admin_urls")),
     path("api/v1/inventory/", include("inventory.urls")),
     path("api/v1/customer/", include("customer.urls")),
+    path("api/v1/cart/", include("cart.urls")),
 ]

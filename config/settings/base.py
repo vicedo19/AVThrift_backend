@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "catalog",
     "inventory",
     "customer",
+    "cart",
 ]
 
 MIDDLEWARE = [
@@ -177,6 +178,8 @@ REST_FRAMEWORK = {
         "catalog": "240/min",
         "catalog_admin_write": "60/min",
         "register": "10/min",
+        "cart": "240/min",
+        "cart_write": "60/min",
     },
 }
 
