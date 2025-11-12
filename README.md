@@ -105,8 +105,13 @@ Cache & Sessions
 
 Throttling
 - Global rates: `user`, `anon`.
-- Scoped rates include `catalog`, `catalog_admin_write`, and auth-related scopes.
+- Scoped rates include `catalog`, `catalog_admin_write`, `cart` (read), `cart_write` (write), and auth-related scopes.
 - Tests override `REST_FRAMEWORK.DEFAULT_THROTTLE_RATES` and the app reads them dynamically.
+
+Cart throttling defaults
+- Development: `cart=20/min`, `cart_write=20/min` (configured in `config/settings/dev.py`)
+- Production: `cart=120/hour`, `cart_write=60/hour` (configured in `config/settings/prod.py`)
+If you enable Redis (`REDIS_URL`), throttling consistency improves across processes.
 
 ---
 
