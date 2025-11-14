@@ -12,6 +12,7 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv(
 CORS_ALLOW_ALL_ORIGINS = config("CORS_ALLOW_ALL_ORIGINS", default=True, cast=bool)
 CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="", cast=Csv())
 CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
+FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -32,6 +33,7 @@ INSTALLED_APPS = [
     "inventory",
     "customer",
     "cart",
+    "orders",
 ]
 
 MIDDLEWARE = [
@@ -75,6 +77,11 @@ CACHES = {
     }
 }
 
+# Cart / reservations
+CART_RESERVATION_TTL_MINUTES = config("CART_RESERVATION_TTL_MINUTES", default=30, cast=int)
+# Cart abandonment TTL (minutes) for stale carts
+CART_ABANDON_TTL_MINUTES = config("CART_ABANDON_TTL_MINUTES", default=120, cast=int)
+
 # Database
 DB_ENGINE = config("DATABASE_ENGINE", default="sqlite")
 if DB_ENGINE.lower() == "postgres":
@@ -86,6 +93,26 @@ if DB_ENGINE.lower() == "postgres":
             "PASSWORD": config("DATABASE_PASSWORD", default=""),
             "HOST": config("DATABASE_HOST", default="localhost"),
             "PORT": config("DATABASE_PORT", default="5432"),
+        }
+    }
+elif DB_ENGINE.lower() == "mysql":
+    # MySQL (InnoDB) support for local dev/testing
+    _options = {}
+    _init_cmd = config("MYSQL_INIT_COMMAND", default="")
+    if _init_cmd:
+        _options["init_command"] = _init_cmd
+    _sql_mode = config("MYSQL_SQL_MODE", default="")
+    if _sql_mode:
+        _options["sql_mode"] = _sql_mode
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": config("DATABASE_NAME", default="avthrift"),
+            "USER": config("DATABASE_USER", default="root"),
+            "PASSWORD": config("DATABASE_PASSWORD", default=""),
+            "HOST": config("DATABASE_HOST", default="localhost"),
+            "PORT": config("DATABASE_PORT", default="3306"),
+            "OPTIONS": _options,
         }
     }
 else:
@@ -180,6 +207,8 @@ REST_FRAMEWORK = {
         "register": "10/min",
         "cart": "240/min",
         "cart_write": "60/min",
+        "orders": "240/min",
+        "orders_write": "60/min",
     },
 }
 

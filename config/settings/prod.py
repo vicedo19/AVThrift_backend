@@ -27,30 +27,53 @@ SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=31536000, cast=int)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
-# Cache: use Redis in production (configure REDIS_URL)
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": config("REDIS_URL", default="redis://localhost:6379/1"),
+# Email: default to SMTP backend in production (override via env if needed)
+EMAIL_BACKEND = config(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.smtp.EmailBackend",
+)
+
+# Cache: use Redis in production when REDIS_URL is provided; otherwise keep base cache
+_REDIS_URL = config("REDIS_URL", default="")
+if _REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": _REDIS_URL,
+        }
     }
-}
 
 # Sessions: cached_db stores sessions in DB with cache acceleration
 SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 
-# Logging
+# Logging: JSON output with contextual extras
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
         "json": {
-            "format": '{"time":"%(asctime)s","level":"%(levelname)s","name":"%(name)s","message":"%(message)s"}',
+            "()": "config.logging.JsonFormatter",
+        },
+    },
+    "filters": {
+        # Sample INFO logs for orders to reduce noise, while never sampling
+        # explicit event names we consider critical for auditability.
+        "orders_info_sample": {
+            "()": "config.logging.SamplingFilter",
+            "rate": config("ORDERS_LOG_SAMPLE_RATE", default=1.0, cast=float),
+            "levels": ["INFO"],
+            "allow_events": ["order_status_changed"],
         },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "json",
+        },
+        "orders_console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+            "filters": ["orders_info_sample"],
         },
     },
     "root": {
@@ -60,6 +83,17 @@ LOGGING = {
     "loggers": {
         "auth": {
             "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "avthrift.cart": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        # Orders logger uses a dedicated handler with sampling
+        "avthrift.orders": {
+            "handlers": ["orders_console"],
             "level": "INFO",
             "propagate": False,
         },
@@ -77,17 +111,16 @@ if SENTRY_DSN:
         send_default_pii=config("SENTRY_SEND_DEFAULT_PII", default=True, cast=bool),
     )
 
-# DRF throttling scopes for cart endpoints in production
-# Define REST_FRAMEWORK explicitly to satisfy flake8 F405 with star imports
+# DRF throttling scopes for cart and orders endpoints in production
 REST_FRAMEWORK = {**BASE_REST_FRAMEWORK}
-REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
-    "rest_framework.throttling.ScopedRateThrottle",
-]
 _rates = {**BASE_REST_FRAMEWORK.get("DEFAULT_THROTTLE_RATES", {})}
 _rates.update(
     {
-        "cart": "120/hour",
-        "cart_write": "60/hour",
+        # Use minute-based units consistent with base settings; reads > writes
+        "cart": "120/min",
+        "cart_write": "60/min",
+        "orders": "60/min",
+        "orders_write": "30/min",
     }
 )
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = _rates
