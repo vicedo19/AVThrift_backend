@@ -124,6 +124,85 @@ Annotate serializers and views for best docs quality. Versioning can be added la
 
 ---
 
+## Cart and Guest Sessions
+
+Overview
+- All endpoints are versioned under `/api/v1/cart/`.
+- Authenticated users operate on a single active cart; guests operate via a client-side session id.
+- Throttle scopes: reads use `cart`, writes use `cart_write` (see Throttling above for rates).
+
+Guest session identifier
+- Header: `X-Session-Id` is required for guest cart reads and most writes.
+- Body field: `session_id` is accepted on guest write serializers; header takes precedence.
+- Format: generate a UUIDv4 or random 32–64 char token client-side and persist until signup/login.
+
+Authenticated endpoints
+- `GET /api/v1/cart/` returns the active cart with items and totals.
+- `POST /api/v1/cart/items/` adds a variant to the cart.
+- `PATCH /api/v1/cart/items/{item_id}/` updates quantity for a cart item.
+- `DELETE /api/v1/cart/items/{item_id}/delete/` removes a cart item.
+- `POST /api/v1/cart/checkout/` checks out the cart.
+  - Optional header `Idempotency-Key: <token>` makes checkout idempotent per user+path+method.
+- `POST /api/v1/cart/abandon/` releases reservations and marks the cart abandoned.
+- `POST /api/v1/cart/clear/` deletes items and releases reservations; status stays active.
+
+Guest endpoints
+- `GET /api/v1/cart/guest/` returns the guest cart (`X-Session-Id` required).
+- `POST /api/v1/cart/guest/items/` adds an item (`X-Session-Id` optional if `session_id` in body).
+- `PATCH /api/v1/cart/guest/items/{item_id}/` updates quantity (`X-Session-Id` required unless in body).
+- `DELETE /api/v1/cart/guest/items/{item_id}/delete/` removes an item (`X-Session-Id` required).
+- `POST /api/v1/cart/guest/clear/` clears the guest cart (`X-Session-Id` required).
+- `POST /api/v1/cart/merge-guest/` merges a guest cart into the authenticated user cart (`X-Session-Id` required).
+
+Merge behavior
+- Quantities aggregate per variant; reservations are recreated atomically on the destination user cart.
+- Guest reservations are released after successful merge; the source guest cart is deleted.
+- Conflicts (e.g., insufficient stock) return `400` with a generic, safe error.
+
+Error responses
+- Generic mutation failures use `400` with `{"detail": "Unable to update cart."}`.
+- Missing guest session header returns `400` with `{"detail": "Missing X-Session-Id."}`.
+- Access violations to non-owned items return `404` with `{"detail": "Not found."}`.
+
+Reservation & abandonment TTLs
+- `CART_RESERVATION_TTL_MINUTES` controls how long stock reservations live (default `30`).
+- `CART_ABANDON_TTL_MINUTES` controls when stale active carts are auto-abandoned (default `120`).
+- Configure in `.env` and they are read via `python-decouple` (`settings/base.py`).
+
+Support/Admin actions
+- Admin list page for `Cart` includes actions for:
+  - Clear cart: releases reservations, keeps status active.
+  - Abandon cart: releases reservations, marks abandoned.
+  - Merge guest cart into user: select a target user in the action form, then merge.
+- Management command to abandon stale carts by TTL:
+  - `uv run python manage.py abandon_stale_carts`
+  - Uses `CART_ABANDON_TTL_MINUTES` to compute cutoff and abandons all matching active carts.
+
+Idempotent checkout
+- Header: `Idempotency-Key` is supported on `POST /api/v1/cart/checkout/`.
+- Replays with the same key return the original response to prevent duplicate orders.
+- Keys are unique per user and endpoint; use a new key for each distinct intent.
+
+## Scheduled Jobs (Production)
+
+Orders idempotency cleanup
+- Command: `uv run python manage.py cleanup_idempotency`
+- Purpose: deletes expired idempotency keys (`orders.IdempotencyKey.expires_at` < now).
+
+DigitalOcean App Platform
+- Add a Job component with schedule `@daily` (or `0 3 * * *`).
+- Set command to `uv run python manage.py cleanup_idempotency`.
+- Ensure environment variables mirror your Web service (e.g., `DJANGO_SETTINGS_MODULE=config.settings.prod`).
+
+DigitalOcean Droplet (cron)
+- Create a cron entry: `0 3 * * * cd /app && uv run python manage.py cleanup_idempotency >> /var/log/cleanup_idempotency.log 2>&1`
+- Replace `/app` with your deploy directory; confirm the environment exports `DJANGO_SETTINGS_MODULE=config.settings.prod`.
+
+Local manual run
+- `uv run python manage.py cleanup_idempotency`
+
+---
+
 ## Code Quality & Tooling
 
 Installed dev tools: Black, isort, Flake8, pre-commit.
