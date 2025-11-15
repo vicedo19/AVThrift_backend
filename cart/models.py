@@ -32,17 +32,45 @@ class Cart(TimeStampedModel):
     STATUS_ABANDONED = CartStatus.ABANDONED
     STATUS_CHOICES = CartStatus.choices
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="carts", on_delete=models.CASCADE)
+    # Either bound to a user (authenticated) or a guest session via session_id
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, related_name="carts", on_delete=models.CASCADE, null=True, blank=True
+    )
+    session_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_ACTIVE, db_index=True)
 
     class Meta:
         ordering = ["-updated_at"]
         indexes = [
             models.Index(fields=["user", "status"]),
+            models.Index(fields=["session_id", "status"]),
+        ]
+        constraints = [
+            # Ensure one of user or session_id is set, but not both
+            models.CheckConstraint(
+                name="cart_user_xor_session",
+                check=(
+                    (models.Q(user__isnull=False) & models.Q(session_id__isnull=True))
+                    | (models.Q(user__isnull=True) & models.Q(session_id__isnull=False))
+                ),
+            ),
+            # Single active cart per user (Postgres honors partial uniques; MySQL will be handled via app logic)
+            models.UniqueConstraint(
+                fields=["user", "status"],
+                condition=models.Q(status=CartStatus.ACTIVE),
+                name="unique_active_cart_per_user",
+            ),
+            # Single active cart per session
+            models.UniqueConstraint(
+                fields=["session_id", "status"],
+                condition=models.Q(status=CartStatus.ACTIVE),
+                name="unique_active_cart_per_session",
+            ),
         ]
 
     def __str__(self) -> str:  # pragma: no cover
-        return f"Cart#{self.id} ({self.user_id})"
+        owner = self.user_id if self.user_id else self.session_id
+        return f"Cart#{self.id} ({owner})"
 
 
 class CartItem(TimeStampedModel):

@@ -10,6 +10,12 @@ from .views import (
     CartDetailView,
     CartItemDeleteView,
     CartItemUpdateView,
+    GuestCartAddItemView,
+    GuestCartClearView,
+    GuestCartDetailView,
+    GuestCartItemDeleteView,
+    GuestCartItemUpdateView,
+    MergeGuestCartView,
 )
 
 app_name = "cart"
@@ -22,4 +28,11 @@ urlpatterns = [
     path("checkout/", CartCheckoutView.as_view(), name="cart-checkout"),
     path("abandon/", CartAbandonView.as_view(), name="cart-abandon"),
     path("clear/", CartClearView.as_view(), name="cart-clear"),
+    # Guest cart routes
+    path("guest/", GuestCartDetailView.as_view(), name="guest-cart-detail"),
+    path("guest/items/", GuestCartAddItemView.as_view(), name="guest-cart-add-item"),
+    path("guest/items/<int:item_id>/", GuestCartItemUpdateView.as_view(), name="guest-cart-update-item"),
+    path("guest/items/<int:item_id>/delete/", GuestCartItemDeleteView.as_view(), name="guest-cart-delete-item"),
+    path("guest/clear/", GuestCartClearView.as_view(), name="guest-cart-clear"),
+    path("merge-guest/", MergeGuestCartView.as_view(), name="cart-merge-guest"),
 ]

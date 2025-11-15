@@ -10,7 +10,7 @@ from .models import Cart
 def get_active_cart_for_user(*, user):
     """Return the user's active cart, creating it if missing."""
 
-    cart, _ = Cart.objects.get_or_create(user=user, status=Cart.STATUS_ACTIVE)
+    cart, _ = Cart.objects.get_or_create(user=user, session_id=None, status=Cart.STATUS_ACTIVE)
     return cart
 
 
@@ -26,3 +26,10 @@ def cart_totals(*, cart: Cart):
         "subtotal": subtotal,
         "total": subtotal,
     }
+
+
+def get_active_cart_for_session(*, session_id: str) -> Cart:
+    """Return the guest session's active cart, creating it if missing."""
+
+    cart, _ = Cart.objects.get_or_create(user=None, session_id=session_id, status=Cart.STATUS_ACTIVE)
+    return cart

@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from .models import CartItem
 from .selectors import cart_totals
-from .services import add_item, update_item_quantity
+from .services import add_item, add_item_guest, update_item_quantity, update_item_quantity_guest
 
 
 class CartItemReadSerializer(serializers.ModelSerializer):
@@ -65,4 +65,31 @@ class UpdateItemQuantitySerializer(serializers.Serializer):
     def update(self, instance, validated_data):  # type: ignore[override]
         user = self.context["request"].user
         item = update_item_quantity(user=user, item_id=instance.id, quantity=validated_data["quantity"])
+        return item
+
+
+class AddItemGuestSerializer(serializers.Serializer):
+    """Write serializer for adding an item to a guest cart."""
+
+    session_id = serializers.CharField(max_length=64)
+    variant_id = serializers.IntegerField()
+    quantity = serializers.IntegerField(min_value=1)
+
+    def create(self, validated_data):  # type: ignore[override]
+        session_id = validated_data.pop("session_id")
+        item = add_item_guest(session_id=session_id, **validated_data)
+        return item
+
+
+class UpdateItemQuantityGuestSerializer(serializers.Serializer):
+    """Write serializer for updating a guest cart item quantity."""
+
+    session_id = serializers.CharField(max_length=64)
+    quantity = serializers.IntegerField(min_value=1)
+
+    def update(self, instance, validated_data):  # type: ignore[override]
+        session_id = validated_data["session_id"]
+        item = update_item_quantity_guest(
+            session_id=session_id, item_id=instance.id, quantity=validated_data["quantity"]
+        )
         return item
