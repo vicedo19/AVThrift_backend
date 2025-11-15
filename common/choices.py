@@ -33,6 +33,14 @@ class CartStatus(models.TextChoices):
     ABANDONED = "abandoned", "Abandoned"
 
 
+class OrderStatus(models.TextChoices):
+    """Lifecycle statuses for orders."""
+
+    PENDING = "pending", "Pending"
+    PAID = "paid", "Paid"
+    CANCELLED = "cancelled", "Cancelled"
+
+
 class NigerianState(models.TextChoices):
     """All Nigerian states plus FCT for address normalization."""
 
