@@ -14,6 +14,12 @@ CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="", cast=Csv())
 CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
 FRONTEND_URL = config("FRONTEND_URL", default="http://localhost:3000")
 
+# Paystack configuration
+PAYSTACK_SECRET_KEY = config("PAYSTACK_SECRET_KEY", default="")
+PAYSTACK_PUBLIC_KEY = config("PAYSTACK_PUBLIC_KEY", default="")
+PAYSTACK_BASE_URL = config("PAYSTACK_BASE_URL", default="https://api.paystack.co")
+PAYSTACK_WEBHOOK_IPS = config("PAYSTACK_WEBHOOK_IPS", default="", cast=Csv())
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -34,6 +40,7 @@ INSTALLED_APPS = [
     "customer",
     "cart",
     "orders",
+    "payments",
 ]
 
 MIDDLEWARE = [
@@ -209,6 +216,8 @@ REST_FRAMEWORK = {
         "cart_write": "60/min",
         "orders": "240/min",
         "orders_write": "60/min",
+        "payments": "240/min",
+        "payments_write": "60/min",
     },
 }
 

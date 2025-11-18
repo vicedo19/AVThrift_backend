@@ -81,7 +81,6 @@ class Product(TimeStampedModel):
     description = models.TextField(blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_DRAFT, db_index=True)
     categories = models.ManyToManyField(Category, related_name="products", blank=True)
-    # Currency fixed to NGN at the business level; field removed
 
     seo_title = models.CharField(max_length=200, blank=True)
     seo_description = models.TextField(blank=True)

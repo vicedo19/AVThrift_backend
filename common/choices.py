@@ -41,43 +41,28 @@ class OrderStatus(models.TextChoices):
     CANCELLED = "cancelled", "Cancelled"
 
 
-class NigerianState(models.TextChoices):
-    """All Nigerian states plus FCT for address normalization."""
+class PaymentIntentStatus(models.TextChoices):
+    """Statuses for payment intents across providers."""
 
-    ABIA = "Abia", "Abia"
-    ADAMAWA = "Adamawa", "Adamawa"
-    AKWA_IBOM = "Akwa Ibom", "Akwa Ibom"
-    ANAMBRA = "Anambra", "Anambra"
-    BAUCHI = "Bauchi", "Bauchi"
-    BAYELSA = "Bayelsa", "Bayelsa"
-    BENUE = "Benue", "Benue"
-    BORNO = "Borno", "Borno"
-    CROSS_RIVER = "Cross River", "Cross River"
-    DELTA = "Delta", "Delta"
-    EBONYI = "Ebonyi", "Ebonyi"
-    EDO = "Edo", "Edo"
-    EKITI = "Ekiti", "Ekiti"
-    ENUGU = "Enugu", "Enugu"
-    GOMBE = "Gombe", "Gombe"
-    IMO = "Imo", "Imo"
-    JIGAWA = "Jigawa", "Jigawa"
-    KADUNA = "Kaduna", "Kaduna"
-    KANO = "Kano", "Kano"
-    KATSINA = "Katsina", "Katsina"
-    KEBBI = "Kebbi", "Kebbi"
-    KOGI = "Kogi", "Kogi"
-    KWARA = "Kwara", "Kwara"
-    LAGOS = "Lagos", "Lagos"
-    NASARAWA = "Nasarawa", "Nasarawa"
-    NIGER = "Niger", "Niger"
-    OGUN = "Ogun", "Ogun"
-    ONDO = "Ondo", "Ondo"
-    OSUN = "Osun", "Osun"
-    OYO = "Oyo", "Oyo"
-    PLATEAU = "Plateau", "Plateau"
-    RIVERS = "Rivers", "Rivers"
-    SOKOTO = "Sokoto", "Sokoto"
-    TARABA = "Taraba", "Taraba"
-    YOBE = "Yobe", "Yobe"
-    ZAMFARA = "Zamfara", "Zamfara"
-    FCT = "FCT", "FCT"
+    INITIALIZED = "initialized", "Initialized"
+    PROCESSING = "processing", "Processing"
+    SUCCEEDED = "succeeded", "Succeeded"
+    FAILED = "failed", "Failed"
+    CANCELLED = "cancelled", "Cancelled"
+
+
+class PaymentProvider(models.TextChoices):
+    """Supported payment providers."""
+
+    PAYSTACK = "paystack", "Paystack"
+
+
+class Currency(models.TextChoices):
+    """Supported currency choices."""
+
+    NGN = "NGN", "Nigerian Naira"
+    USD = "USD", "US Dollar"
+    GHS = "GHS", "Ghanaian Cedi"
+    ZAR = "ZAR", "South African Rand"
+    KES = "KES", "Kenyan Shilling"
+    XOF = "XOF", "West African CFA Franc"

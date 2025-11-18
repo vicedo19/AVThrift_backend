@@ -97,6 +97,12 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        # Payments logger groups all payments-related logs
+        "avthrift.payments": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
 }
 
