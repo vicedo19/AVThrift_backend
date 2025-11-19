@@ -25,3 +25,7 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
     "orders": "1000/min",
     "orders_write": "1000/min",
 }
+
+# Disable orders webhook verification in tests to allow simple payload-based stubs
+ORDERS_WEBHOOK_SECRET = ""
+ORDERS_WEBHOOK_ALLOWED_IPS = []

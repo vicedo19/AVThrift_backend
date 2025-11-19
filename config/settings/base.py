@@ -20,6 +20,13 @@ PAYSTACK_PUBLIC_KEY = config("PAYSTACK_PUBLIC_KEY", default="")
 PAYSTACK_BASE_URL = config("PAYSTACK_BASE_URL", default="https://api.paystack.co")
 PAYSTACK_WEBHOOK_IPS = config("PAYSTACK_WEBHOOK_IPS", default="", cast=Csv())
 
+# Orders webhook security (generic, defaults to Paystack settings if unset)
+ORDERS_WEBHOOK_SECRET = config("ORDERS_WEBHOOK_SECRET", default=PAYSTACK_SECRET_KEY)
+# Parse from env; if empty, fallback to Paystack IPs list
+ORDERS_WEBHOOK_ALLOWED_IPS = config("ORDERS_WEBHOOK_ALLOWED_IPS", default="", cast=Csv())
+if not ORDERS_WEBHOOK_ALLOWED_IPS:
+    ORDERS_WEBHOOK_ALLOWED_IPS = PAYSTACK_WEBHOOK_IPS
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",

@@ -8,11 +8,13 @@ DEBUG = True
 # In dev, allow the browsable API and relaxed CORS
 CORS_ALLOW_ALL_ORIGINS = True
 
+
 # Email backend for dev
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = _config("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+# EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
 
 # Optional Redis cache for local parity
-
 _REDIS_URL = _config("REDIS_URL", default="")
 if _REDIS_URL:
     CACHES = {
