@@ -39,6 +39,7 @@ class PaymentsHealthView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = "payments"
 
+    @extend_schema(tags=["Payments Endpoints"], summary="Payments health")
     def get(self, request, *args, **kwargs):
         return Response({"status": "ok"})
 
@@ -55,7 +56,7 @@ class PaymentIntentCreateUpdateView(APIView):
     throttle_classes = [ScopedRateThrottle]
 
     @extend_schema(
-        tags=["Payments"],
+        tags=["Payments Endpoints"],
         summary="Create or update payment intent",
         description=(
             "Creates or updates a PaymentIntent identified by `reference`. If `amount` is omitted, "
@@ -127,7 +128,7 @@ class PaymentIntentDetailView(APIView):
     throttle_classes = [ScopedRateThrottle]
 
     @extend_schema(
-        tags=["Payments"],
+        tags=["Payments Endpoints"],
         summary="Get payment intent by reference",
         responses={
             200: PaymentIntentSerializer,
@@ -156,7 +157,7 @@ class PaystackInitializeView(APIView):
     throttle_classes = [ScopedRateThrottle]
 
     @extend_schema(
-        tags=["Payments"],
+        tags=["Payments Endpoints"],
         summary="Initialize Paystack transaction",
         description=(
             "Initializes a Paystack transaction for an order. If `amount` is omitted, "
@@ -316,7 +317,7 @@ class PaystackWebhookView(APIView):
     throttle_classes = [ScopedRateThrottle]
 
     @extend_schema(
-        tags=["Payments"],
+        tags=["Payments Endpoints"],
         summary="Paystack webhook handler",
         description="Validates signature and processes charge.success events idempotently.",
         request=inline_serializer(

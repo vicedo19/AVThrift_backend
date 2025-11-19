@@ -6,18 +6,9 @@ Defines the PaymentIntent used to track Paystack transactions.
 from decimal import Decimal
 
 from common.choices import Currency, PaymentIntentStatus, PaymentProvider
+from common.models import TimeStampedModel
 from django.core.validators import MinValueValidator
 from django.db import models
-
-
-class TimeStampedModel(models.Model):
-    """Abstract base model adding created/updated timestamps."""
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
 
 
 class PaymentIntent(TimeStampedModel):
