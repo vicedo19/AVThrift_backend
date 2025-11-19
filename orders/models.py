@@ -1,18 +1,9 @@
 from decimal import Decimal
 
 from common.choices import OrderStatus
+from common.models import TimeStampedModel
 from django.conf import settings
 from django.db import models
-
-
-class TimeStampedModel(models.Model):
-    """Abstract base model adding created/updated timestamps."""
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
 
 
 class Order(TimeStampedModel):
@@ -30,6 +21,8 @@ class Order(TimeStampedModel):
     number = models.CharField(max_length=32, unique=True, null=True, blank=True, db_index=True)
     email = models.EmailField(null=True, blank=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    # Optional shipping/contact address details stored as JSON for simplicity
+    shipping_address = models.JSONField(null=True, blank=True)
 
     class Meta:
         ordering = ["-id"]
@@ -87,4 +80,19 @@ class IdempotencyKey(TimeStampedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["key", "scope", "path", "method"], name="uniq_idem_scope_path_method"),
+        ]
+
+
+class OrderStatusEvent(TimeStampedModel):
+    """Audit trail of order status transitions."""
+
+    order = models.ForeignKey(Order, related_name="status_events", on_delete=models.CASCADE)
+    from_status = models.CharField(max_length=16, choices=Order.STATUS_CHOICES)
+    to_status = models.CharField(max_length=16, choices=Order.STATUS_CHOICES)
+    reason = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+        indexes = [
+            models.Index(fields=["order", "created_at"]),
         ]

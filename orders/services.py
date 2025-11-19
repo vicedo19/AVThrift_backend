@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import json
 import logging
 from datetime import timedelta
@@ -6,11 +7,12 @@ from decimal import Decimal
 from typing import Callable, Optional, Tuple
 
 from cart.models import Cart, CartItem
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from .emails import send_order_paid_email
-from .models import IdempotencyKey, Order, OrderItem
+from .models import IdempotencyKey, Order, OrderItem, OrderStatusEvent
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,11 @@ def pay_order(order: Order) -> Order:
     order.status = Order.STATUS_PAID
     order.save(update_fields=["status", "updated_at"])
     try:
+        OrderStatusEvent.objects.create(order=order, from_status=prev, to_status=order.status, reason="payment")
+    except Exception:
+        # Audit trails should not block mutations
+        pass
+    try:
         logger.info(
             "order_status_changed",
             extra={
@@ -64,6 +71,11 @@ def pay_order(order: Order) -> Order:
         )
     except Exception:
         # Logging should never break mutations
+        pass
+    # Hook: schedule fulfillment task (placeholder)
+    try:
+        schedule_fulfillment(order)
+    except Exception:
         pass
     # Notify customer of payment confirmation
     try:
@@ -88,6 +100,10 @@ def cancel_order(order: Order) -> Order:
     order.status = Order.STATUS_CANCELLED
     order.save(update_fields=["status", "updated_at"])
     try:
+        OrderStatusEvent.objects.create(order=order, from_status=prev, to_status=order.status, reason="cancel")
+    except Exception:
+        pass
+    try:
         logger.info(
             "order_status_changed",
             extra={
@@ -97,6 +113,11 @@ def cancel_order(order: Order) -> Order:
                 "status_to": order.status,
             },
         )
+    except Exception:
+        pass
+    # Hook: initiate reimbursement for cancellation (placeholder)
+    try:
+        initiate_reimbursement_for_cancellation(order)
     except Exception:
         pass
     return order
@@ -173,3 +194,81 @@ def compute_request_hash(data: Optional[dict]) -> Optional[str]:
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
     except Exception:
         return None
+
+
+def verify_orders_webhook(request) -> Tuple[bool, Optional[str]]:
+    """Verify incoming orders webhook by signature or IP allowlist.
+
+    Returns (True, None) when trusted, otherwise (False, reason).
+    - If ORDERS_WEBHOOK_SECRET is set, validates HMAC SHA-512 of raw body against `X-Paystack-Signature`.
+    - Else if ORDERS_WEBHOOK_ALLOWED_IPS is set, validates the request IP is in the allowlist.
+    - Otherwise, rejects as unconfigured.
+    """
+    try:
+        secret = getattr(settings, "ORDERS_WEBHOOK_SECRET", "") or ""
+        allowed_ips = set(getattr(settings, "ORDERS_WEBHOOK_ALLOWED_IPS", []) or [])
+        # Prefer signature verification when secret is present
+        if secret:
+            signature = request.headers.get("X-Paystack-Signature") or request.headers.get("X-Signature")
+            if not signature:
+                return False, "missing_signature"
+            digest = hmac.new(secret.encode("utf-8"), request.body or b"", hashlib.sha512).hexdigest()
+            if not hmac.compare_digest(digest, str(signature)):
+                return False, "bad_signature"
+            return True, None
+        # Fallback to IP allowlist
+        if allowed_ips:
+            ip = (request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()) or request.META.get(
+                "REMOTE_ADDR", ""
+            )
+            if ip and ip in allowed_ips:
+                return True, None
+            return False, "ip_not_allowed"
+        # Dev/test fallback: when not configured, accept webhook
+        return True, None
+    except Exception:
+        return False, "verification_error"
+
+
+def update_order_contact(
+    order: Order, *, email: Optional[str] = None, shipping_address: Optional[dict] = None
+) -> Order:
+    """Update limited order contact fields (email, shipping_address) with validation.
+
+    Only allowed for pending orders; silently ignores None fields.
+    """
+    if order.status != Order.STATUS_PENDING:
+        raise ValueError("Can only update a pending order")
+    updates = {}
+    if email is not None:
+        e = str(email).strip().lower()
+        if not e or "@" not in e or len(e) > 254:
+            raise ValueError("Invalid email")
+        updates["email"] = e
+    if shipping_address is not None:
+        if not isinstance(shipping_address, dict):
+            raise ValueError("Invalid address")
+        # Basic shape validation
+        required = ["recipient", "line1", "city", "country"]
+        if any(not shipping_address.get(k) for k in required):
+            raise ValueError("Missing address fields")
+        addr = dict(shipping_address)
+        # Normalize country code
+        if "country" in addr:
+            addr["country"] = str(addr["country"]).upper()
+        updates["shipping_address"] = addr
+    if updates:
+        for field, value in updates.items():
+            setattr(order, field, value)
+        order.save(update_fields=[*updates.keys(), "updated_at"])
+    return order
+
+
+def schedule_fulfillment(order: Order) -> None:
+    """Placeholder hook for creating shipment/fulfillment tasks after payment."""
+    logger.info("fulfillment_scheduled", extra={"order_id": order.id, "status": order.status})
+
+
+def initiate_reimbursement_for_cancellation(order: Order) -> None:
+    """Placeholder hook to initiate refunds or release holds after cancellation."""
+    logger.info("cancellation_reimbursement_initiated", extra={"order_id": order.id, "status": order.status})

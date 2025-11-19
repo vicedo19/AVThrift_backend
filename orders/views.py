@@ -3,6 +3,8 @@
 Provides Order detail with optional pricing inputs via query params.
 """
 
+import logging
+
 from django.http import Http404
 from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import generics
@@ -13,7 +15,16 @@ from rest_framework.views import APIView
 
 from .models import Order
 from .serializers import OrderSerializer
-from .services import cancel_order, compute_request_hash, pay_order, with_idempotency
+from .services import (
+    cancel_order,
+    compute_request_hash,
+    pay_order,
+    update_order_contact,
+    verify_orders_webhook,
+    with_idempotency,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class OrderDetailView(generics.RetrieveAPIView):
@@ -49,7 +60,7 @@ class OrderDetailView(generics.RetrieveAPIView):
         return ctx
 
     @extend_schema(
-        tags=["Orders"],
+        tags=["Orders Endpoints"],
         summary="Get order detail",
         description=(
             "Retrieve a single order for the authenticated user.\n\n"
@@ -103,7 +114,7 @@ class OrderPayView(APIView):
     throttle_scope = "orders_write"
 
     @extend_schema(
-        tags=["Orders"],
+        tags=["Orders Endpoints"],
         summary="Pay order",
         description="Marks the order as paid. Idempotent when Idempotency-Key header is set.",
         parameters=[
@@ -164,7 +175,7 @@ class OrderCancelView(APIView):
     throttle_scope = "orders_write"
 
     @extend_schema(
-        tags=["Orders"],
+        tags=["Orders Endpoints"],
         summary="Cancel order",
         description="Cancels the order unless it is paid. Idempotent when Idempotency-Key header is set.",
         parameters=[
@@ -252,7 +263,7 @@ class OrderListView(generics.ListAPIView):
         return qs
 
     @extend_schema(
-        tags=["Orders"],
+        tags=["Orders Endpoints"],
         summary="List orders",
         description="List current user's orders with optional filters and pagination.",
         parameters=[
@@ -280,7 +291,7 @@ class OrderPaymentWebhookView(APIView):
     throttle_scope = "orders_write"
 
     @extend_schema(
-        tags=["Orders"],
+        tags=["Orders Endpoints"],
         summary="Payment webhook",
         description=(
             "Consumes a payment provider webhook and marks the order as paid.\n"
@@ -310,6 +321,26 @@ class OrderPaymentWebhookView(APIView):
         ],
     )
     def post(self, request):
+        # Verify webhook (signature or IP allowlist)
+        trusted, reason = verify_orders_webhook(request)
+        if not trusted:
+            try:
+                logger.warning(
+                    "orders_webhook_rejected",
+                    extra={
+                        "reason": reason,
+                        "path": str(request.path),
+                        "method": str(request.method),
+                        "ip": (request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip())
+                        or request.META.get("REMOTE_ADDR", ""),
+                    },
+                )
+            except Exception:
+                pass
+            return Response(
+                {"detail": "Webhook verification failed"},
+                status=401 if reason == "missing_signature" or reason == "bad_signature" else 403,
+            )
         data = getattr(request, "data", {}) or {}
         order_id = data.get("order_id")
         event = data.get("event")
@@ -345,3 +376,56 @@ class OrderPaymentWebhookView(APIView):
 
         body, code = _handler()
         return Response(body, status=code)
+
+
+class OrderUpdateView(APIView):
+    """Update limited order fields (email, shipping address) with validation.
+
+    Only for authenticated owner and pending orders.
+    """
+
+    permission_classes = [IsAuthenticated]
+    throttle_scope = "orders_write"
+
+    @extend_schema(
+        tags=["Orders Endpoints"],
+        summary="Update order contact",
+        description="Update order email and/or shipping address while pending.",
+        responses={
+            200: OrderSerializer,
+            400: OrderSerializer,
+        },
+        examples=[
+            OpenApiExample(
+                "Update Email",
+                value={"email": "new@example.com"},
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Update Address",
+                value={
+                    "shipping_address": {
+                        "recipient": "Jane Doe",
+                        "line1": "123 Main St",
+                        "city": "Lagos",
+                        "country": "NG",
+                    }
+                },
+                request_only=True,
+            ),
+        ],
+    )
+    def patch(self, request, order_id: int):
+        try:
+            order = Order.objects.get(pk=order_id, user=request.user)
+        except Order.DoesNotExist:
+            raise Http404
+        payload = getattr(request, "data", {}) or {}
+        email = payload.get("email")
+        addr = payload.get("shipping_address")
+        try:
+            updated = update_order_contact(order, email=email, shipping_address=addr)
+            data = OrderSerializer(updated, context={"request": request}).data
+            return Response(data, status=200)
+        except ValueError as e:
+            return Response({"detail": str(e) or "Invalid input"}, status=400)

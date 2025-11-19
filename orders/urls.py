@@ -2,7 +2,14 @@
 
 from django.urls import path
 
-from .views import OrderCancelView, OrderDetailView, OrderListView, OrderPaymentWebhookView, OrderPayView
+from .views import (
+    OrderCancelView,
+    OrderDetailView,
+    OrderListView,
+    OrderPaymentWebhookView,
+    OrderPayView,
+    OrderUpdateView,
+)
 
 app_name = "orders"
 
@@ -12,4 +19,5 @@ urlpatterns = [
     path("<int:order_id>/pay/", OrderPayView.as_view(), name="order-pay"),
     path("<int:order_id>/cancel/", OrderCancelView.as_view(), name="order-cancel"),
     path("webhooks/payment/", OrderPaymentWebhookView.as_view(), name="order-webhook-payment"),
+    path("<int:order_id>/update/", OrderUpdateView.as_view(), name="order-update"),
 ]

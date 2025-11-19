@@ -54,6 +54,7 @@ class OrderSerializer(serializers.ModelSerializer):
             "number",
             "status",
             "email",
+            "shipping_address",
             "created_at",
             "items",
             "subtotal",
@@ -62,7 +63,16 @@ class OrderSerializer(serializers.ModelSerializer):
             "discount",
             "total",
         ]
-        read_only_fields = ["id", "created_at", "subtotal", "tax", "shipping", "discount", "total"]
+        read_only_fields = [
+            "id",
+            "created_at",
+            "subtotal",
+            "tax",
+            "shipping",
+            "discount",
+            "total",
+            "shipping_address",
+        ]
 
     def get_subtotal(self, obj: Order) -> Decimal:
         subtotal = Decimal("0.00")
