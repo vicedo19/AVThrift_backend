@@ -4,15 +4,8 @@ Tracks stock at the SKU (variant) or product level without warehouses.
 """
 
 from common.choices import MovementType, ReservationState
+from common.models import TimeStampedModel
 from django.db import models
-
-
-class TimeStampedModel(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
 
 
 class StockItem(TimeStampedModel):
