@@ -4,18 +4,9 @@ Defines core entities for the catalog domain: categories, attributes,
 products, variants, media, collections, and attribute values.
 """
 
-from common.choices import ActiveInactive, DraftPublished
+from common.choices import ActiveInactive, AttributeInputType, DraftPublished
+from common.models import TimeStampedModel
 from django.db import models
-
-
-class TimeStampedModel(models.Model):
-    """Abstract base model adding created/updated timestamps."""
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
 
 
 class Category(TimeStampedModel):
@@ -44,20 +35,16 @@ class Category(TimeStampedModel):
 class Attribute(TimeStampedModel):
     """Product attribute definition (e.g., color, size)."""
 
-    INPUT_TEXT = "text"
-    INPUT_NUMBER = "number"
-    INPUT_BOOLEAN = "boolean"
-    INPUT_SELECT = "select"
-    INPUT_CHOICES = [
-        (INPUT_TEXT, "Text"),
-        (INPUT_NUMBER, "Number"),
-        (INPUT_BOOLEAN, "Boolean"),
-        (INPUT_SELECT, "Select"),
-    ]
+    # Backward-compatible aliases, now sourced from common.choices
+    INPUT_TEXT = AttributeInputType.TEXT
+    INPUT_NUMBER = AttributeInputType.NUMBER
+    INPUT_BOOLEAN = AttributeInputType.BOOLEAN
+    INPUT_SELECT = AttributeInputType.SELECT
+    INPUT_CHOICES = AttributeInputType.choices
 
     name = models.CharField(max_length=120)
     code = models.CharField(max_length=64, unique=True)
-    input_type = models.CharField(max_length=16, choices=INPUT_CHOICES, default=INPUT_TEXT)
+    input_type = models.CharField(max_length=16, choices=AttributeInputType.choices, default=AttributeInputType.TEXT)
     is_filterable = models.BooleanField(default=False)
     allowed_values = models.JSONField(null=True, blank=True)
     sort_order = models.IntegerField(default=0)
