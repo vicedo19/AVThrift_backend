@@ -7,18 +7,9 @@ Guest carts (session-based) can be added in a follow-up.
 from decimal import Decimal
 
 from common.choices import CartStatus
+from common.models import TimeStampedModel
 from django.conf import settings
 from django.db import models
-
-
-class TimeStampedModel(models.Model):
-    """Abstract base model adding created/updated timestamps."""
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True
 
 
 class Cart(TimeStampedModel):
