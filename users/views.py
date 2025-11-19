@@ -14,8 +14,8 @@ Endpoints include:
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.utils.encoding import force_str
-from django.utils.http import urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -173,8 +173,24 @@ def email_verification_request(request):
         log_auth_event("email_verification_request", request, status="not_found")
         return Response({"detail": "If the account exists, a verification will be sent."})
 
-    uid, token = send_email_verification(user)
-    log_auth_event("email_verification_request", request, user=user, status="sent", extra={"uid": uid})
+    # Attempt to send the verification email; if the email backend fails
+    # (e.g., TimeoutError/SMTP connection issues), do not leak transport
+    # errors to the client. Return the same generic response and still
+    # provide uid/token for dev convenience.
+    try:
+        uid, token = send_email_verification(user)
+        log_auth_event("email_verification_request", request, user=user, status="sent", extra={"uid": uid})
+    except Exception as e:  # pragma: no cover - depends on external SMTP
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = email_verification_token.make_token(user)
+        log_auth_event(
+            "email_verification_request",
+            request,
+            user=user,
+            status="send_failed",
+            extra={"uid": uid, "error": str(e)},
+        )
+
     return Response({"detail": "If the account exists, a verification will be sent.", "uid": uid, "token": token})
 
 

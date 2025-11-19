@@ -4,10 +4,11 @@ Uses Django's built-in `UserAdmin` to manage the `users.User` model
 in the admin interface.
 """
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 from .models import User
+from .services import send_email_verification
 
 
 @admin.register(User)
@@ -56,6 +57,37 @@ class UserAdmin(BaseUserAdmin):
     )
 
     filter_horizontal = ("groups", "user_permissions")
+
+    actions = ["send_verification_email"]
+
+    def send_verification_email(self, request, queryset):
+        """Admin action to send email verification to selected users.
+
+        Skips users without an email or those already verified.
+        """
+        sent = 0
+        skipped = 0
+        for user in queryset:
+            email = (user.email or "").strip()
+            if not email or user.email_verified:
+                skipped += 1
+                continue
+            try:
+                send_email_verification(user)
+                sent += 1
+            except Exception as exc:  # pragma: no cover - admin UI feedback
+                skipped += 1
+                messages.warning(
+                    request,
+                    f"Failed to send verification to {user.username or user.id}: {exc}",
+                )
+
+        if sent:
+            messages.success(request, f"Sent verification email to {sent} user(s).")
+        if skipped:
+            messages.info(request, f"Skipped {skipped} user(s) without email or already verified.")
+
+    send_verification_email.short_description = "Send verification email"
 
 
 # Additional admin registrations can be added here as new models land.
